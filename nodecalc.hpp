@@ -340,6 +340,7 @@ _API(clearstrlist)
 	return 0;
 }
 
+#ifdef EXPORT
 // -----------------------------------
 // 数据输出 I/O
 // -----------------------------------
@@ -514,6 +515,8 @@ _API(getstr)
 	PRINTV(strlist.size());
 	return 0;
 }
+#endif
+
 void NODECALC_REG_API()
 {	
 	_REG_API(abe, calc_set_abelian);
@@ -524,6 +527,7 @@ void NODECALC_REG_API()
 	_REG_API(sub, calc_sub);
 	_REG_API(calc, calc_wak);
 
+#ifdef EXPORT
 	_REG_API(getival, getival);		// 获得int value
 	_REG_API(getfval, getfval);		// 获得float value
 	_REG_API(getstr, getstr);		// 获得string
@@ -531,4 +535,5 @@ void NODECALC_REG_API()
 	_REG_API(getrect, getrect);		// 获得RECT
 
 	_REG_API(cls, clearstrlist);
+#endif
 }

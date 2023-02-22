@@ -35,8 +35,9 @@ struct tree_t
 	static inline string genid()
 	{
 		node_count++;
-		if (node_count >= 10000)
+		if (node_count >= 10000) // 注意：id < 10000
 			return to_string(node_count);
+
 		// 简单字典顺序
 		return	to_string(node_count/1000%10) +
 				to_string(node_count/100%10) +
@@ -915,7 +916,7 @@ namespace node {
 
 			ent.type = 0; // 自定义元素类型
 			// 在资源上定义加法运算
-			fun_set = [&ent](const var& v) {
+			ent.fun_set = [&ent](const var& v) {
 				if (v.type == 0)
 				{
 					res(ent).node->kv[res(ent).key] = cres(v).node->kv[cres(v).key];
@@ -944,12 +945,12 @@ void NODE_REG_API()
 			//string b = GET_SPARAM(2);
 			crstr b = PHG_PARAM(2).tostr();
 
-			PHG_PRINT("PROP GET: " << a << "." << b);
+			//PRINT("PROP GET: " << a << "." << b);
 			NODE* n = a == "me" ? (ME) : GET_NODE(a, ROOT);
 			ASSERT_RET(n);
 
 			string c = n->kv[b];
-			PHG_PRINT(a << "." << b << "=" << c);
+			//PRINT(a << "." << b << "=" << c);
 			var v; v.type = 0; v.sval = c; node::res(v).node = n; node::res(v).key = b;
 			
 			POP_SPARAM;

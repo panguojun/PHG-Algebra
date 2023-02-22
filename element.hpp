@@ -19,7 +19,6 @@
 // ------------------------------------------
 struct var_t;
 using fun_set_t = std::function<void(const var_t& v)>;
-fun_set_t fun_set = 0;
 struct var_t
 {
 	string sval;
@@ -30,6 +29,7 @@ struct var_t
 	short resid = -1;
 	enum { TYPE_DEFAULT = 1, TTYPE_INT = 1,TYPE_REAL = 2, TYPE_S = 3, TYPE_UNKOWN = 0};
 	short type = TYPE_DEFAULT; // 1 -int, 2 -real, 3 -string, 0 -unkown, other -custom
+	fun_set_t fun_set = 0;
 
 	var_t() { }
 	var_t(int _val) {
