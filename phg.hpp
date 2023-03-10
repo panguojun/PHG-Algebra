@@ -116,7 +116,6 @@ typedef var(*api_fun)(code& cd, int stackpos);
 #endif 
 struct api_fun_t
 {
-	int args = 0;
 	api_fun fun;
 };
 std::map<std::string, api_fun_t> api_list;
@@ -125,6 +124,9 @@ std::map<std::string, api_fun_t> api_list;
 void(*table)(code& cd);
 
 std::vector<std::string> gstable;
+
+// 计算过程
+void(*process)(code& cd);
 
 // 树节点
 //void(*tree)(code& cd);
@@ -886,10 +888,9 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 					}
 					else { // A+B*...
 						getval(cd, type);
-
+						args = 1;
 						cd.valstack.push(expr(cd, 1, rank_opr(o)));
 						args++;
-
 						cd.valstack.push(act(cd, args));
 						char nc = cd.cur();
 						if (iscalc(nc) || islogic(nc)) {
@@ -1287,7 +1288,7 @@ var callfunc(code& cd) {
 	{
 		PHG_PRINT("API:" << fnm);
 		api_fun_t& apifun = api_list[fnm];
-		apifun.args = 0;
+		int args = 0;
 
 		PHG_ASSERT(cd.next3() == '(');
 
@@ -1317,19 +1318,19 @@ var callfunc(code& cd) {
 					if (get_funparam(v, fnm.c_str(), param.c_str()))
 					{
 						cd.valstack.push(v);
-						apifun.args++;
+						args++;
 					}
 					cd.next();
 				}
 				else
 				{
 					cd.valstack.push(expr(cd));
-					apifun.args++;
+					args++;
 				}
 			}
 		}
-		var ret = apifun.fun(cd, apifun.args);
-		for (int i = 0; i < apifun.args; i++)
+		var ret = apifun.fun(cd, args);
+		for (int i = 0; i < args; i++)
 			cd.valstack.pop_back();
 		//PRINTV(cd.cur());
 		return ret;
@@ -1383,8 +1384,8 @@ void parser_default(code& cd) {
 #endif
 	//getchar();
 
-	//(gvarmapstack.stack.size());
-	gvarmapstack.push();
+	if(gvarmapstack.stack.empty())
+		gvarmapstack.push();
 
 	while (!cd.eoc()) {
 		short type = cd.gettype();
@@ -1398,6 +1399,10 @@ void parser_default(code& cd) {
 		else if (type == '$') {
 			cd.next();
 			func(cd);
+		}
+		else if (type == '(') {
+			if(process)
+				process(cd);
 		}
 		else if (type == '[') {
 			table(cd);

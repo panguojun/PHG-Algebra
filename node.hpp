@@ -329,7 +329,8 @@ void _crt_array(code& cd, tree_t* tree, const string& pre, int depth, const stri
 	int rnd = rand();
 	//vector<string> nodes;
 	string node;
-	while (!cd.eoc()) {
+	while (!cd.eoc()) 
+	{
 		char c = cd.cur();
 		//PRINT(c);
 		tree_t* ntree = 0;
@@ -341,14 +342,14 @@ void _crt_array(code& cd, tree_t* tree, const string& pre, int depth, const stri
 		else if (c == '<' || c == '>') {
 			SYNTAXERR("'<' or '>' is not allowed in '[]', use '{}'!");
 			cd.ptr = 0;
-			return;
+			break;
 		}
 		else if (c == ':' || c == '=')
 		{
 			if (node == "") {
 				SYNTAXERR("key is missing before ':' or '='!");
 				cd.ptr = 0;
-				return;
+				break;
 			}
 		}
 		else if (c == '{')
@@ -374,7 +375,7 @@ void _crt_array(code& cd, tree_t* tree, const string& pre, int depth, const stri
 				if (ret == 1)
 				{
 					cd.next();
-					return;
+					break;
 				}
 			}
 			else
@@ -385,9 +386,7 @@ void _crt_array(code& cd, tree_t* tree, const string& pre, int depth, const stri
 			}
 			node = "";
 		}
-		else if (c == ',' || c == ']')
-		{
-		}
+		else if (c == ',' || c == ']'){}
 		else
 			node += c;
 
@@ -420,8 +419,8 @@ void _crt_array(code& cd, tree_t* tree, const string& pre, int depth, const stri
 					if (ret == 1)
 					{
 						cd.next();
-						PRINTV(ret)
-							return;
+						//PRINTV(ret);
+						break;
 					}
 				}
 				else
@@ -435,10 +434,9 @@ void _crt_array(code& cd, tree_t* tree, const string& pre, int depth, const stri
 			if (c == ']')
 			{
 				cd.next();
-				return;
+				break;
 			}
 		}
-
 		cd.next();
 	}
 }
@@ -450,7 +448,8 @@ void _crt_sequ(code& cd, tree_t* tree, const string& pre)
 
 	//vector<string> nodes;
 	string node;
-	while (!cd.eoc()) {
+	while (!cd.eoc())
+	{
 		char c = cd.cur();
 		//PRINT(c)
 		tree_t* ntree = 0;
@@ -462,14 +461,14 @@ void _crt_sequ(code& cd, tree_t* tree, const string& pre)
 		else if (c == '[' || c == ']') {
 			SYNTAXERR("'[' or ']' is not allowed in '<>', use '{}'!");
 			cd.ptr = 0;
-			return;
+			break;
 		}
 		else if (c == ':')
 		{
 			if (node == "") {
 				SYNTAXERR("key is missing before ':'!");
 				cd.ptr = 0;
-				return;
+				break;
 			}
 		}
 		else if (c == '{')
@@ -525,7 +524,7 @@ void _crt_sequ(code& cd, tree_t* tree, const string& pre)
 			if (c == '>')
 			{
 				cd.next();
-				return;
+				break;
 			}
 		}
 		cd.next();
@@ -552,15 +551,12 @@ bool porperty_intree(tree_t* tree, const char* key, crstr val)
 {
 	auto it = tree->kv.find(key);
 	if (it != tree->kv.end())
-	{
 		return  it->second == val;
-	}
+
 	// children
 	for (auto it : tree->children) {
 		if (porperty_intree(it.second, key, val))
-		{
 			return true;
-		}
 	}
 	return false;
 }
@@ -613,8 +609,7 @@ void node_walker(tree_t* tree, std::function<void(tree_t*)> fun)
 // ====================================
 tree_t* _getbyprop(tree_t* tree, crstr key, crstr val)
 {
-	if (tree->kv[key] == val)
-	{
+	if (tree->kv[key] == val){
 		return tree;
 	}
 
@@ -629,9 +624,7 @@ tree_t* _getbyprop(tree_t* tree, crstr key, crstr val)
 _API(kv_order)
 {
 	if (ME)
-	{
 		ME->b_kv_ordered = true;
-	}
 	return 0;
 }
 _API(api_im)
@@ -655,7 +648,8 @@ _API(api_im)
 		if (me)
 			PRINTV(me->name);
 	}
-	else {
+	else 
+	{
 		SPARAM(node);
 		if (node == "parent")
 		{
@@ -884,7 +878,8 @@ _API(walknode)
 
 	return 0;
 }
-namespace node {
+namespace node 
+{
 	struct res_t
 	{
 		// 携带的属性
@@ -963,7 +958,6 @@ void NODE_REG_API()
 	PROP([](code& cd, const char* a, const char* b, var& v) {
 		if (!ROOT) return;
 		int args = 1;
-		
 
 		NODE* n = strcmp(a, "me") == 0 ? (ME) : GET_NODE(a, ROOT);
 		ASSERT(n);
@@ -987,10 +981,7 @@ void NODE_REG_API()
 	_REG_API(sequ, sequ);			// 节点序列 (正在放弃中...)
 
 	_REG_API(prop, property);		// 添加属性(正在放弃中...)
-
-	_REG_API(wak, walknode);			// 遍历节点树
-
+	_REG_API(wak, walknode);		// 遍历节点树
 	_REG_API(expr, do_expr);		// 执行表达式
-
-	_REG_API(dumpn, dump_node);			// dump
+	_REG_API(dumpn, dump_node);		// dump
 }
