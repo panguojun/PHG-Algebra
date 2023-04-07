@@ -38,7 +38,7 @@ yy = yy + 1;
 //namespace PHG{
 #define PHG_DEBUG
 //#define SYNTAXERR(msg)	ERRORMSG("At: " << cd.ptr - cd.start + 1 << ", ERR: " << msg)
-#define SYNTAXERR(msg)	ERRORMSG("ERR: " << msg << "\nAt: \n" << cd.ptr)
+#define SYNTAXERR(msg)	ERRORMSG("ERR: " << msg << "\nAt: \n" << cd.ptr << " Pos:" << int(cd.ptr-cd.start))
 #ifdef WIN
 #define PHG_ASSERT(x)	{if(!(x)){std::stringstream ss; ss << "PHG ASSERT FAILED! " << __FILE__ << "(" << __LINE__ << ")"; ::MessageBoxA(0, ss.str().c_str(), "PHG ASSERT", 0); errorcode = 1;} }
 #else
@@ -121,23 +121,21 @@ struct api_fun_t
 std::map<std::string, api_fun_t> api_list;
 
 // 表格数据 [1,2,3]
-void(*table)(code& cd);
-
-std::vector<std::string> gstable;
+void(*table)(code& cd) = 0;
 
 // 计算过程
-void(*process)(code& cd);
+void(*process)(code& cd) = 0;
 
 // 树节点
 //void(*tree)(code& cd);
 #ifndef tree_fun
-void(*tree)(code& cd);// 树节点 {A,B,C}
+void(*tree)(code& cd) = 0;// 树节点 {A,B,C}
 #else
 tree_fun tree = 0;
 #endif 
 
 // 运算
-var(*act)(code& cd, int args);
+var(*act)(code& cd, int args) = 0;
 
 // 错误处理
 int errorcode = 0;
@@ -376,8 +374,8 @@ struct varmapstack_t
 // -----------------------------------------------------
 struct code
 {
-	const char* ptr;				// code pointer
-	const char* start;
+	const char* ptr = 0;			// code pointer
+	const char* start = 0;
 	codestack_t			codestack;	// 代码栈
 	oprstack_t			oprstack;	// 操作栈
 	valstack_t			valstack;	// 值栈
@@ -479,7 +477,7 @@ struct code
 		return *ptr;
 	}
 	const char* getname() {
-		static char buf[32];// 暂不支持多线程！
+		thread_local static char buf[32];
 		char* pbuf = buf;
 		const char* p = ptr;
 		if (isname(*p))
@@ -1200,9 +1198,14 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 			}
 			default:
 			{
-				if (cd.cur() == '{' ||	// tree define
-					cd.cur() == '$')	// function define
+				if (!bfunc &&
+					(cd.cur() == '{' ||	// tree define
+					 cd.cur() == '$')	// function define
+					)
+				{
 					return 0;
+				}
+
 				statement(cd);
 
 				if (bsingleline)
@@ -1235,7 +1238,6 @@ var callfunc_phg(code& cd) {
 			cd.valstack.push(expr(cd));
 		}
 	}
-
 	cd.codestack.push(cd.ptr);
 
 	if (api_list.find(cd.getname()) != api_list.end() ||
@@ -1252,8 +1254,8 @@ var callfunc_phg(code& cd) {
 	gvarmapstack.push();
 	cd.next();
 
-	std::vector<std::string> paramnamelist;
-	std::vector<var> paramvallist;
+	std::vector<std::string> pm_names;
+	std::vector<var> pm_vals;
 	while (!cd.eoc()) {
 		char c = cd.cur();
 		if (c == ')') {
@@ -1264,14 +1266,14 @@ var callfunc_phg(code& cd) {
 			cd.next();
 		}
 		else {
-			paramnamelist.push_back(cd.getname());
-			paramvallist.push_back(cd.valstack.back());
+			pm_names.push_back(cd.getname());
+			pm_vals.push_back(cd.valstack.back());
 			cd.valstack.pop_back();
 			cd.next2();
 		}
 	}
-	for (int i = 0; i < paramnamelist.size(); i++)
-		gvarmapstack.addvar(paramnamelist[i].c_str(), paramvallist[paramvallist.size() - 1 - i]);
+	for (unsigned int i = 0; i < pm_names.size(); i++)
+		gvarmapstack.addvar(pm_names[i].c_str(), pm_vals[pm_vals.size() - 1 - i]);
 
 	var ret(0);
 	PHG_ASSERT(subtrunk(cd, ret, 0, true) == 2);
@@ -1502,17 +1504,19 @@ void dofile(const char* filename)
 	init();
 
 	FILE* f;
-	if (!(f = fopen(filename, "rb")))
+	if (!(f = fopen(filename, "r")))
 	{
-		MSGBOX("dofile:" << filename << " file not found!");
+		ERRORMSG("dofile:" << filename << " file not found!");
 		return;
 	}
-
-	int sp = ftell(f);
 	fseek(f, 0, SEEK_END);
-	int sz = ftell(f) - sp;
+	long sz = ftell(f);
+	if (sz == 0)
+	{
+		fclose(f);
+		return;
+	}
 	char* buf = new char[sz + 1];
-	fseek(f, 0, SEEK_SET);
 	fread(buf, 1, sz, f);
 	buf[sz] = '\0';
 	fclose(f);

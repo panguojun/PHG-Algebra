@@ -160,7 +160,7 @@ static void _table(code& cd)
 // ===================================
 // API
 // ===================================
-void tableindex_func(const char* pchar, var& v)
+void _tableindex_fun(const char* pchar, var& v)
 {
 	string str(pchar); 
 	PRINT(str);
@@ -172,7 +172,7 @@ void tableindex_func(const char* pchar, var& v)
 }
 void TABLE_REG_API()
 {
-	tableindex = tableindex_func;
+	tableindex = _tableindex_fun;
 	CALC([](code& cd, char o, int args)->var {
 		if (o == '.')
 		{

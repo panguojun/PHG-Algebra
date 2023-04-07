@@ -7,11 +7,11 @@
 #define NODE		GROUP::tree_t
 #define ROOT		GROUP::gtree
 #define ME			GROUP::work_stack.empty() ? 0 : GROUP::work_stack.back()
-#define GET_NODE(name, node)	name == "me" ? ME : _gettree(name, node)
+#define GET_NODE(name, node)	name == "me" ? ME : get_node(name, node, true)
 
 int node_count = 0;								// 节点数量
 
-struct tree_t
+typedef struct tree_t
 {
 	tree_t* parent = 0;
 	string name;								// 名字
@@ -32,7 +32,7 @@ struct tree_t
 		else
 			return depth;
 	}
-	static inline string genid()
+	static inline string genid0()
 	{
 		node_count++;
 		if (node_count >= 10000) // 注意：id < 10000
@@ -43,6 +43,19 @@ struct tree_t
 				to_string(node_count/100%10) +
 				to_string(node_count/10%10) +
 				to_string(node_count%10);
+	}
+	static inline string genid()
+	{
+		node_count++;
+		if (node_count >= 10000) // 注意：id < 10000
+			return to_string(node_count);
+
+		string str = to_string(node_count);
+		int len = str.length();
+		for (int i = 0; i < 4 - len; i++) {
+			str = "0" + str;
+		}
+		return str;
 	}
 	inline int getindex()
 	{
@@ -88,7 +101,7 @@ struct tree_t
 		}
 		delete(ot);
 	}
-};
+}tree_t;
 
 // -----------------------------------------------------------------------
 tree_t* gtree = 0;						// 暂时使用全局树
@@ -96,7 +109,7 @@ vector<tree_t*>	work_stack;				// 工作栈
 std::string		cur_property = "pr1";	// 当前属性
 extern void _crt_array(code& cd, tree_t* tree, const string& pre, int depth, const string& selector);
 extern void _crt_sequ(code& cd, tree_t* tree, const string& pre);
-extern tree_t* _gettree(const string& name, tree_t* tree);
+extern tree_t* get_node(const string& name, tree_t* tree, bool recu);
 
 // -----------------------------------------------------------------------
 static void _tree(code& cd, tree_t* tree, const string& pre, int depth = 0)
@@ -284,7 +297,7 @@ static void _tree(code& cd, tree_t* tree, const string& pre, int depth = 0)
 	}
 }
 
-tree_t* _gettree(const string& name, tree_t* tree = gtree)
+tree_t* get_node(const string& name, tree_t* tree = gtree, bool recu = true)
 {
 	if (name == tree->name)
 		return tree;
@@ -295,10 +308,13 @@ tree_t* _gettree(const string& name, tree_t* tree = gtree)
 			return it->second;
 		}
 	}
-	for (auto it : tree->children) {
-		tree_t* ret = _gettree(name, it.second);
-		if (ret)
-			return ret;
+	if (recu)
+	{
+		for (auto it : tree->children) {
+			tree_t* ret = get_node(name, it.second, recu);
+			if (ret)
+				return ret;
+		}
 	}
 	return 0;
 }
@@ -662,7 +678,7 @@ _API(api_im)
 		}
 		else
 		{
-			me = _gettree(node, ROOT);
+			me = get_node(node, ROOT);
 		}
 		if (me)
 			PRINTV(me->name);
@@ -694,7 +710,7 @@ _API(array)
 	if (args == 1)
 	{
 		SPARAM(clonenode);
-		tree_t* t = _gettree(clonenode);
+		tree_t* t = get_node(clonenode);
 		if (t)
 		{
 			(*ntree) += (*t);
@@ -728,7 +744,7 @@ _API(sequ)
 	if (args == 1)
 	{
 		SPARAM(clonenode);
-		tree_t* t = _gettree(clonenode, ROOT);
+		tree_t* t = get_node(clonenode, ROOT);
 		if (t)
 		{
 			PRINTV(clonenode);
@@ -983,5 +999,5 @@ void NODE_REG_API()
 	_REG_API(prop, property);		// 添加属性(正在放弃中...)
 	_REG_API(wak, walknode);		// 遍历节点树
 	_REG_API(expr, do_expr);		// 执行表达式
-	_REG_API(dumpn, dump_node);		// dump
+	_REG_API(dump, dump_node);		// dump
 }
