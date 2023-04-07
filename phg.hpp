@@ -697,8 +697,7 @@ inline std::string getstring(code& cd, char s1 = '\'', char s2 = '\"', char ed =
 		if (c == '\\')
 		{
 			cd.ptr++;
-			content += cd.cur();
-			cd.ptr++;
+			content += *cd.ptr; cd.ptr++;
 			continue;
 		}
 		if (c != s1 && c != s2 && c != ed)
@@ -740,24 +739,45 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 		}
 		else if (type == '[')
 		{
-			string body;
-			while (true) {
-				char c = *(++cd.ptr);
-				ASSERT(c != '[')// 不支持嵌套！
-				if (c == 0 || c == ']')
-				{
-					cd.next();
-					break;
-				}
-				body += c;
-			}
-			PRINT("tableindex: " << body);
-			var ret;
-			if (tableindex)
+			if (*(cd.ptr + 1) == '[')
 			{
-				tableindex(body.c_str(), ret);
+				cd.ptr += 2;
+				string str;
+				while ((*cd.ptr) != '\0' &&
+					((*(cd.ptr)) != ']' || (*(cd.ptr + 1)) != ']'))
+					str += *(cd.ptr++);
+				cd.ptr += 2;
+				//MSGBOX(str)
+				cd.strstack.push_back(str);
+#ifdef USE_STRING			
+				cd.valstack.push(std::move(var(str.c_str())));
+				args++;
+				//	PRINTV(cd.cur());
+#else
+				return INVALIDVAR;
+#endif
+			} 
+			else 
+			{
+				string body;
+				while (true) {
+					char c = *(++cd.ptr);
+					ASSERT(c != '[')// 不支持嵌套！
+						if (c == 0 || c == ']')
+						{
+							cd.next();
+							break;
+						}
+					body += c;
+				}
+				PRINT("tableindex: " << body);
+				var ret;
+				if (tableindex)
+				{
+					tableindex(body.c_str(), ret);
+				}
+				return ret;
 			}
-			return ret;
 		}
 		else if (type == '{' && brace)
 		{// 运算中使用大括号，临时匿名节点
@@ -1035,11 +1055,29 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 				}
 				break;
 			}
-			case '\'':
+			case '\'':			
 			case '#':
 			{
 				cd.nextline();
 				break;
+			}
+			case '\\':
+			{
+				if (*(cd.ptr + 1) == '\\')
+				{
+					cd.nextline();
+					break;
+				}
+			}
+			case '/':
+			{
+				if (*(cd.ptr + 1) == '*')
+				{
+					while ((*cd.ptr) != '\0' &&
+						((*(cd.ptr)) != '*' || (*(cd.ptr + 1)) != '/'))
+						cd.ptr++;
+					break;
+				}
 			}
 			case '?':  // if else
 			{
@@ -1391,28 +1429,37 @@ void parser_default(code& cd) {
 
 	while (!cd.eoc()) {
 		short type = cd.gettype();
-
-		if (type == ';') {
+		switch (type) {
+		case ';':
 			cd.nextline();
-		}
-		else if (type == '\'' || type == '#') {
+			break;
+		case '\'':
+		case '#':
 			cd.nextline();
-		}
-		else if (type == '$') {
+			break;
+		case '/':
+			if (*(cd.ptr+1) == '*')
+			{
+				while ((*cd.ptr) != '\0' &&
+					((*(cd.ptr)) != '*' || (*(cd.ptr + 1)) != '/'))
+					cd.ptr++;
+				break;
+			}
+		case '$':
 			cd.next();
 			func(cd);
-		}
-		else if (type == '(') {
-			if(process)
+			break;
+		case '(':
+			if (process)
 				process(cd);
-		}
-		else if (type == '[') {
+			break;
+		case '[':
 			table(cd);
-		}
-		else if (type == '{') {
+			break;
+		case '{':
 			tree(cd);
-		}
-		else {
+			break;
+		default:
 			var ret(0);
 			subtrunk(cd, ret, 0, 0);
 		}
