@@ -1064,20 +1064,8 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 			case '\\':
 			{
 				if (*(cd.ptr + 1) == '\\')
-				{
 					cd.nextline();
-					break;
-				}
-			}
-			case '/':
-			{
-				if (*(cd.ptr + 1) == '*')
-				{
-					while ((*cd.ptr) != '\0' &&
-						((*(cd.ptr)) != '*' || (*(cd.ptr + 1)) != '/'))
-						cd.ptr++;
-					break;
-				}
+				break;
 			}
 			case '?':  // if else
 			{
@@ -1236,6 +1224,15 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 			}
 			default:
 			{
+				{// 注释块
+					if (*(cd.ptr) == '/' && *(cd.ptr + 1) == '*')
+					{
+						cd.ptr += 2;
+						while ((*cd.ptr) != '\0' &&
+							((*(cd.ptr)) != '*' || (*(cd.ptr + 1)) != '/'))
+							cd.ptr++;
+					}
+				}
 				if (!bfunc &&
 					(cd.cur() == '{' ||	// tree define
 					 cd.cur() == '$')	// function define
@@ -1437,14 +1434,6 @@ void parser_default(code& cd) {
 		case '#':
 			cd.nextline();
 			break;
-		case '/':
-			if (*(cd.ptr+1) == '*')
-			{
-				while ((*cd.ptr) != '\0' &&
-					((*(cd.ptr)) != '*' || (*(cd.ptr + 1)) != '/'))
-					cd.ptr++;
-				break;
-			}
 		case '$':
 			cd.next();
 			func(cd);
@@ -1504,6 +1493,18 @@ void fixedstring(string& out, const char* str)
 	{
 		c = *str++;
 		if (c == '#') do c = (*str++); while ((*str) != '\n' && c != '\0');
+
+		if (c == '/') {
+			if (*(str + 1) == '*')
+			{
+				str += 2;
+				while ((*str) != '\0' &&
+					((*(str)) != '*' || (*(str + 1)) != '/'))
+					str++;
+				break;
+			}
+		}
+
 		if (c == 0) break;
 		out += c;
 	}
