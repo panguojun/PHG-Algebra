@@ -1,6 +1,7 @@
-/*
-*		字符串的解析
-*/
+/******************************************
+*				字符串的解析
+*				
+*******************************************/
 #include <iostream>
 #include <string>
 
@@ -287,5 +288,76 @@ namespace STR
 			}
 		}
 		return "";
+	}
+	inline bool readfile(string& out, const char* filename)
+	{
+		PRINT("readfile:" << filename)
+			FILE* f;
+		if (!(f = fopen(filename, "rb")))
+		{
+			MSGBOX("readfile:" << filename << " file not found!");
+			return false;
+		}
+
+		int sp = ftell(f);
+		fseek(f, 0, SEEK_END);
+		int sz = ftell(f) - sp;
+		char* buf = new char[sz + 1];
+		fseek(f, 0, SEEK_SET);
+		fread(buf, 1, sz, f);
+		buf[sz] = '\0';
+		fclose(f);
+
+		out = buf;
+
+		delete[]buf;
+		return true;
+	}
+
+	inline string ws2s(const wstring& ws)
+	{
+		string curLocale = setlocale(LC_ALL, NULL);     //curLocale="C"
+		setlocale(LC_ALL, "chs");
+		const wchar_t* wcs = ws.c_str();
+		size_t dByteNum = sizeof(wchar_t) * ws.size() + 1;
+
+		char* dest = new char[dByteNum];
+		wcstombs_s(NULL, dest, dByteNum, wcs, _TRUNCATE);
+		string result = dest;
+		delete[] dest;
+		setlocale(LC_ALL, curLocale.c_str());
+		return result;
+	}
+
+	inline wstring s2ws(const string& s)
+	{
+		string curLocale = setlocale(LC_ALL, NULL);  //curLocale="C"
+		setlocale(LC_ALL, "chs");
+		const char* source = s.c_str();
+		size_t charNum = s.size() + 1;
+
+		wchar_t* dest = new wchar_t[charNum];
+		mbstowcs_s(NULL, dest, charNum, source, _TRUNCATE);
+		wstring result = dest;
+		delete[] dest;
+		setlocale(LC_ALL, curLocale.c_str());
+		return result;
+	}
+	inline string fixedname(crstr name)
+	{
+		const char* p = name.c_str();
+		if (*p == '\'' || *p == '\"')
+		{
+			string ret = p + 1;
+			ret.pop_back();
+			return ret;
+		}
+		return name;
+	}
+	inline void fixedproperty(string& str)
+	{
+		str.erase(std::remove(str.begin(), str.end(), '\''), str.end());
+		str.erase(std::remove(str.begin(), str.end(), '\"'), str.end());
+
 	}
 }
