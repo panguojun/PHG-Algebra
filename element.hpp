@@ -50,6 +50,9 @@ struct var_t
 		//PRINT("var_t copy " << v.type);
 		(*this) = v;
 	}
+	var_t(int _type, const char* _val) {
+		type = _type; sval = _val;
+	}
 	void operator = (int v)
 	{
 		type = 1; ival = v; resid = -1;
@@ -268,7 +271,7 @@ inline void _PHGPRINT(const std::string& pre, const var& v)
 // ------------------------------------------
 // 运算符号定义 
 // ------------------------------------------
-#define CHECK_CALC	(c == '+' || c == '-' || c == '*' || c == '/' || c == '^' || c == '.' || c == '`' || c == '~')
+#define CHECK_CALC	(c == '+' || c == '-' || c == '*' || c == '/' || c == '^' || c == '.' || c == '`')
 #define CHECK_LOGIC	(c == '>' || c == '<' || c == '=' || c == '&' || c == '|' || c == '!')
 
 // CALC RANK
