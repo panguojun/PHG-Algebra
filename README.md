@@ -109,6 +109,7 @@ for example:
 node1{pos:1,2,3; node2{}}
 
 #Can be nested or anonymous such as:
+
 node1{pos:1,2,3; node2{x:1; node3{y:1}}}
 node1{x:1;{y:1}}   
 
