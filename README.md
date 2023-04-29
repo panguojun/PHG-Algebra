@@ -133,6 +133,7 @@ node2{x:2;{node1}{node2,y:1}}
 
 node1{x:1;<a{},b{}>}
 node1{x:1;[a{},b{}]}
+
 #It is also possible to inherit from other nodes:
 a{x:1}b{y:1}
 node1{z:1;<a,b>[a,b]}
