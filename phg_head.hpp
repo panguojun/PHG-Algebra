@@ -1,4 +1,4 @@
-﻿#undef var
+#undef var
 #undef INVALIDVAR
 #undef rank
 #undef fun_t
@@ -40,7 +40,7 @@
 
 
 // base
-struct varbase_t
+typedef struct varbase_t
 {
 	union {
 		int ival = 0;
@@ -143,7 +143,7 @@ struct varbase_t
 		}
 		return ret;
 	}
-};
+}varbase_t;
 #define VAR_BASE(name) \
 	name(int _ival) : varbase_t(_ival) {} \
 	name(real _fval) : varbase_t(_fval) {} \
