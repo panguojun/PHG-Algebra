@@ -1,5 +1,0 @@
-setup('cst');
-# lua
-lua('script/num_solu.lua');
-
->{5*x+2 -> 10; x:10}*5;
