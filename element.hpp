@@ -27,7 +27,7 @@ struct var_t
 		real fval;
 	};
 	short resid = -1;
-	enum { TYPE_DEFAULT = 1, TTYPE_INT = 1,TYPE_REAL = 2, TYPE_S = 3, TYPE_UNKOWN = 0};
+	enum { TYPE_DEFAULT = 1, TYPE_INT = 1,TYPE_REAL = 2, TYPE_S = 3, TYPE_UNKOWN = 0};
 	short type = TYPE_DEFAULT; // 1 -int, 2 -real, 3 -string, 0 -unkown, other -custom
 	fun_set_t fun_set = 0;
 
@@ -251,6 +251,7 @@ struct var_t
 // ------------------------------------------
 // 打印
 // ------------------------------------------
+void(*print_fun)(const var&) = 0;
 inline void _PHGPRINT(const std::string& pre, const var& v)
 {
 	if (v.type == 1)
@@ -265,6 +266,9 @@ inline void _PHGPRINT(const std::string& pre, const var& v)
 			PRINT(pre << v.sval)
 		else if (!strlist.empty())
 			PRINT(pre << strlist.back())
+
+		if (print_fun)
+			print_fun(v);
 	}
 }
 
@@ -368,7 +372,7 @@ static var _act(code& cd, int args)
 		case '^': {
 			var& b = PHG_VALSTACK(1);
 			var& a = PHG_VALSTACK(2);
-			ret = pow(a,b);
+			ret = pow((real)a, (real)b);
 		}break;
 		case '=': {
 			var& b = PHG_VALSTACK(1);

@@ -37,7 +37,6 @@ yy = yy + 1;
 ****************************************************************************/
 //namespace PHG{
 #define PHG_DEBUG
-//#define SYNTAXERR(msg)	ERRORMSG("At: " << cd.ptr - cd.start + 1 << ", ERR: " << msg)
 #define SYNTAXERR(msg)	ERRORMSG("ERR: " << msg << "\nAt: \n" << cd.ptr << " Pos:" << int(cd.ptr-cd.start))
 #ifdef WIN
 #define PHG_ASSERT(x)	{if(!(x)){std::stringstream ss; ss << "PHG ASSERT FAILED! " << __FILE__ << "(" << __LINE__ << ")"; ::MessageBoxA(0, ss.str().c_str(), "PHG ASSERT", 0); errorcode = 1;} }
@@ -45,7 +44,7 @@ yy = yy + 1;
 #define PHG_ASSERT(x)	{if(!(x)){std::stringstream ss; ss << "PHG ASSERT FAILED! " << __FILE__ << "(" << __LINE__ << ")"; PRINT(ss.str()); errorcode = 1;} }
 #endif
 #define PHG_PRINT(x)	{if(becho) PRINT(x)}
-#define INVALIDFUN	cd.funcnamemap.end()
+#define INVALIDFUN		cd.funcnamemap.end()
 
 #define ADD_VAR			GROUP::gvarmapstack.addvar
 #define ADD_SVAR(s,v)	GROUP::gvarmapstack.addvar(s.c_str(),v)
@@ -53,19 +52,29 @@ yy = yy + 1;
 #define SET_SVAR		ADD_SVAR
 #define GET_VAR			GROUP::gvarmapstack.getvar
 
-#define varname		std::string
-#define to_int(v)	(int)(v)
+#define varname			std::string
+#define to_int(v)		(int)(v)
 
-#define opr			unsigned short
-#define fnname	std::string
-#define functionptr	const char*
+#define opr				unsigned short
+#define fnname			std::string
+#define functionptr		const char*
 
-#define NAME		0x01FF
-#define NUMBER		0x02FF
-#define OPR			0x03FF
-#define LGOPR		0x04FF
+#define NAME			0x01FF
+#define NUMBER			0x02FF
+#define OPR				0x03FF
+#define LGOPR			0x04FF
 
-// -----------------------------------------------------
+#ifdef  STRUCT_PHG
+#define FUN_PTR(fptr)				(this->*fptr)
+#define FUN_PTR_SET(fptr, func)		fptr = &GROUP::func
+#define MEMBER_FUNC(func)			rettype(GROUP::*func)
+
+#else
+#define FUN_PTR(fptr)	fptr
+#define FUN_PTR_SET(fptr, func)		fptr = func
+#define MEMBER_FUNC(rettype, func)	rettype (*func)
+#endif
+// ------------------------------------------------------------------------
 //#ifndef code	
 struct code;
 //#endif
@@ -73,36 +82,30 @@ struct code;
 var callfunc(code& cd);
 #endif
 #ifndef parser_fun
-typedef void (*parser_fun)(code& cd);
+typedef MEMBER_FUNC(void, parser_fun)(code& cd);
 #endif
 parser_fun parser = 0;
 #ifndef statement_fun
-typedef int(*statement_fun)(code& cd);
+typedef MEMBER_FUNC(int, statement_fun)(code& cd);
 #endif
 statement_fun statement = 0;
 
-static char rank[256];				// 是运算符等级设定数组
+static char rank[256];			// 是运算符等级设定数组
 unsigned char rank_opr0(opr c) { return rank[(char)c]; }
-typedef unsigned char(*rank_opr_fun)(opr);
+typedef MEMBER_FUNC(unsigned char, rank_opr_fun)(opr);
 rank_opr_fun rank_opr = rank_opr0;
 
-typedef bool(*funparam_fun)(var&, const char*, const char*);
-funparam_fun get_funparam = 0;
+bool(*get_funparam)(var&, const char*, const char*) = 0;
 
-typedef var(*get_var_fun)(const char*);
-get_var_fun get_var = 0;
+var(*get_var)(const char*) = 0;
 
-typedef void(*add_var_fun)(const char*, var&);
-add_var_fun add_var = 0;
+void(*add_var)(const char*, var&) = 0;
 
-typedef void(*add_var_fun2)(code& cd, const char*, const char*, var&);
-add_var_fun2 add_var2 = 0;
+void(*add_var2)(code& cd, const char*, const char*, var&) = 0;
 
-typedef void(*subtree_fun)(code& cd, const char*, var&);
-subtree_fun subtree = 0;
+void(*subtree)(code& cd, const char*, var&) = 0;
 
-typedef void(*tableindex_fun)(const char*, var&);
-tableindex_fun tableindex = 0;
+void(*tableindex)(const char*, var&) = 0;
 
 #ifndef gvarmapstack
 struct varmapstack_t;
@@ -111,13 +114,9 @@ extern varmapstack_t	gvarmapstack;
 bool	becho = true;
 
 // API
-#ifndef fun_t
-typedef var(*api_fun)(code& cd, int stackpos);
+#ifndef api_fun
+typedef var(*api_fun_t)(code& cd, int stackpos);
 #endif 
-struct api_fun_t
-{
-	api_fun fun;
-};
 std::map<std::string, api_fun_t> api_list;
 
 // 表格数据 [1,2,3]
@@ -127,7 +126,6 @@ void(*table)(code& cd) = 0;
 void(*process)(code& cd) = 0;
 
 // 树节点
-//void(*tree)(code& cd);
 #ifndef tree_fun
 void(*tree)(code& cd) = 0;// 树节点 {A,B,C}
 #else
@@ -135,12 +133,12 @@ tree_fun tree = 0;
 #endif 
 
 // 运算
-var(*act)(code& cd, int args) = 0;
+MEMBER_FUNC(var, act)(code& cd, int args) = 0;
 
 // 错误处理
 int errorcode = 0;
 
-// -----------------------------------------------------
+// ------------------------------------------------------------------------
 static inline bool checkline(char c) {
 	return (c == '\n' || c == '\r');
 }
@@ -158,8 +156,7 @@ static bool iscalc0(opr o) {
 	return c == '+' || c == '-' || c == '*' || c == '/' || c == '^' || c == '.';
 #endif
 }
-typedef bool (*iscalc_fun)(opr o);
-iscalc_fun iscalc = iscalc0;
+bool (*iscalc)(opr o) = iscalc0;
 
 static bool islogic0(opr o) {
 	char c = (char)o;
@@ -169,7 +166,7 @@ static bool islogic0(opr o) {
 	return c == '>' || c == '<' || c == '=' || c == '&' || c == '|' || c == '!';
 #endif
 }
-iscalc_fun islogic = islogic0;
+bool (*islogic)(opr o) = islogic0;
 
 static inline bool isname(char c) {
 	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_';
@@ -181,9 +178,9 @@ static inline bool isbracket(char c) {
 	return c == '(';
 }
 
-// -----------------------------------------------------
-// 堆栈定义
-// -----------------------------------------------------
+// ------------------------------------------------------------------------
+// 堆栈
+// ------------------------------------------------------------------------
 // stacks define
 struct codestack_t
 {
@@ -213,11 +210,9 @@ struct valstack_t
 {
 	std::vector<var> stack;
 	void push(const var& v) {
-		//PRINT("PUSH")
 		stack.emplace_back(v);
 	}
 	var pop() {
-		//PRINT("POP")
 		if (stack.empty())
 		{
 			ERRORMSG("pop value error!");
@@ -228,7 +223,6 @@ struct valstack_t
 		return ret;
 	}
 	bool pop(var& v) {
-		//PRINT("POP2")
 		if (stack.empty())
 		{
 			ERRORMSG("pop value error!");
@@ -250,7 +244,6 @@ struct valstack_t
 		stack.pop_back();
 	}
 	var& cur() {
-		//PRINT("cur")
 		PHG_ASSERT(!stack.empty());
 		return stack[top()];
 	}
@@ -306,22 +299,14 @@ struct varmapstack_t
 
 	void push()
 	{
-		//PRINT("varmapstack PUSH");
 		stack.push_back(varmap_t());
 	}
 	void pop()
 	{
-		//PRINT("varmapstack POP");
 		stack.pop_back();
 	}
 	void addvar(const char* name, const var& v)
 	{
-#ifdef USE_STRING
-		//PRINT("addvar: " << name << "=" << float(v));
-#endif
-		//if(!gtable.empty())
-		//	add2table(v);
-
 		if (stack.empty())
 			push();
 
@@ -329,7 +314,6 @@ struct varmapstack_t
 	}
 	var getvar(const char* name)
 	{
-		//PRINT("getvar = " << name);
 		if (stack.empty())
 		{
 			ERRORMSG("var: " << name << " undefined!");
@@ -369,9 +353,9 @@ struct varmapstack_t
 	}
 } gvarmapstack;
 
-// -----------------------------------------------------
-// 代码结构体
-// -----------------------------------------------------
+// ------------------------------------------------------------------------
+// 代码结构体，语法解析
+// ------------------------------------------------------------------------
 struct code
 {
 	const char* ptr = 0;			// code pointer
@@ -512,69 +496,7 @@ struct code
 		return 0;
 	}
 };
-/*
-// 运算
-var act_default(code& cd, int args)
-{
-	opr o = cd.oprstack.pop();
-
-	PHGPRINT("act:" << o << " args = " << args)
-
-	switch (o) {
-	case '+': {
-		if (args > 1) {
-			var b = cd.valstack.pop();
-			var a = cd.valstack.pop();
-			return a + b;
-		}
-		else {
-			return cd.valstack.pop();
-		}
-	}
-	case '-': {
-		if (args > 1) {
-			var b = cd.valstack.pop();
-			var a = cd.valstack.pop();
-			return a - b;
-		}
-		else {
-			return -cd.valstack.pop();
-		}
-	}
-	case '*': {
-		var b = cd.valstack.pop();
-		var a = cd.valstack.pop();
-		return a * b;
-	}
-	case '/': {
-		var b = cd.valstack.pop();
-		var a = cd.valstack.pop();
-		return a / b;
-	}
-	case '>': {
-		var b = cd.valstack.pop();
-		var a = cd.valstack.pop();
-		return a > b;
-	}
-	case '<': {
-		var b = cd.valstack.pop();
-		var a = cd.valstack.pop();
-		return a < b;
-	}
-	case '=': {
-		var b = cd.valstack.pop();
-		var a = cd.valstack.pop();
-		return a == b;
-	}
-	case '!': {
-		var a = cd.valstack.pop();
-		return !a;
-	}
-	default: {return 0; }
-	}
-}
-*/
-
+// chars to var
 inline var chars2var(code& cd) {
 	char buff[64];
 	bool isreal = false;
@@ -589,30 +511,15 @@ inline var chars2var(code& cd) {
 		cd.next();
 	}
 	buff[i] = '\0';
-	//PRINTV(buff);
 	cd.strstack.push_back(buff);
-	//if (!isreal && !gtable.empty())
-	//{
-	//	int number = atoi(buff);
-	//	if (number < 0 || number >= gtable.size())
-	//	{
-	//		ERRORMSG("chars2var error! number=" << number);
-	//		return INVALIDVAR;
-	//	}
-	//	//PRINTV(number);
-	//	return gtable[number];
-	//}
 	return isreal ? var((real)atof(buff)) : var(atoi(buff));
 }
 
-// Get Value (number/function/var)
+// get value (number/function/var)
 bool getval(code& cd, short type) {
 
 	if (type == NUMBER) {
 		cd.valstack.push(chars2var(cd));
-		/*if (cd.oprstack.empty() || !(iscalc(cd.oprstack.cur()) || islogic(cd.oprstack.cur()))) {
-			cd.oprstack.push('.');
-		}*/
 		return true;
 	}
 	else if (type == NAME) {
@@ -623,7 +530,6 @@ bool getval(code& cd, short type) {
 			cd.funcnamemap.find(name) != INVALIDFUN) {
 
 			cd.valstack.push(callfunc(cd));
-			//PRINT("func:" << name << " c:" << cd.cur());
 		}
 		else
 		{// 变量
@@ -636,7 +542,6 @@ bool getval(code& cd, short type) {
 					cd.valstack.push(std::move(v));
 				else
 				{
-					//PRINT("var: " << name << " not found!");
 #ifdef USE_STRING	
 					cd.valstack.push(var(name)); // 变量找不到 按照字符串处理
 #endif
@@ -645,12 +550,7 @@ bool getval(code& cd, short type) {
 			cd.next3();
 
 			cd.strstack.push_back(name);
-
-			//PRINT("var:" << name << " c:" << cd.cur());
 		}
-		//if (cd.oprstack.empty() || !(iscalc(cd.oprstack.cur()) || islogic(cd.oprstack.cur()))) {
-		//	cd.oprstack.push('.');
-		//}
 		return true;
 	}
 	return false;
@@ -659,7 +559,6 @@ bool getval(code& cd, short type) {
 void finishtrunk(code& cd, int trunkcnt = 0)
 {
 	const char sk = '{', ek = '}';
-
 	int sk_cnt = 0;
 	while (!cd.eoc()) {
 		char c = cd.cur();
@@ -712,9 +611,7 @@ inline std::string getstring(code& cd, char s1 = '\'', char s2 = '\"', char ed =
 	//PRINTV(content)
 	return content;
 }
-// -----------------------------------------------------
 // 表达式 for example: x=a+b, v = fun(x), x > 2 || x < 5
-// -----------------------------------------------------
 var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 {
 	//PRINT("expr( ");
@@ -798,28 +695,21 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 			subtree(cd, stbody.c_str(), ret);
 			cd.valstack.push(ret);
 			args++;
-			//PRINT("cd.cur(): " << cd.cur());
 			continue;
-			//return ret;
 		}
 		else if (type == NAME || type == NUMBER) {
 			getval(cd, type);
 			args++;
 			brace = false;
-			//PRINTV(args);
-			/*if (';' == cd.cur())
-			{
-				return cd.valstack.pop();
-			}*/
 		}
 		else if (type == OPR || type == LGOPR) {
 			opr o = cd.cur();
-			if (rank_opr(o) == rank_opr('.') - 1) // 注意：指数位置运算符优先级永远紧跟在(.)之后！
+			if (FUN_PTR(rank_opr)(o) == FUN_PTR(rank_opr)('.') - 1) // 注意：指数位置运算符优先级永远紧跟在(.)之后！
 			{// 指数位置一元运算符
 				cd.oprstack.push(o);
 				oprs++;
 				cd.next();
-				cd.valstack.push(act(cd, 1));
+				cd.valstack.push(FUN_PTR(act)(cd, 1));
 				args++;
 				continue;
 			}
@@ -830,17 +720,13 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 					//PRINT("long oper: " << o);
 				}
 			}
-			if (rank_opr(o) <= rank0)
+			if (FUN_PTR(rank_opr)(o) <= rank0)
 			{
 				return cd.valstack.pop();
 			}
-			/*if (!cd.oprstack.empty() && cd.oprstack.cur() == '.')
-				cd.oprstack.setcur(o);
-			else*/
-			{
-				cd.oprstack.push(o);
-				oprs++;
-			}
+			cd.oprstack.push(o);
+			oprs++;
+			
 			cd.next();
 			if (o & 0xFF00)
 				cd.next();
@@ -848,11 +734,8 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 			if (cd.cur() == '{')
 			{
 				brace = true;
-				//cd.valstack.push(expr(cd));
-				//args++;
 				continue;
 			}
-			//PRINT(cd.cur());
 
 			if (iscalc(cd.cur()) || islogic(cd.cur())) {
 				cd.valstack.push(expr(cd));
@@ -875,7 +758,6 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 					else if (isname(cd.cur()))
 					{
 						no = cd.getnext4();
-						//PRINTV(no)
 						if(no == '(') // 函数？
 						{
 							const char* p = cd.ptr;
@@ -884,11 +766,9 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 									break;
 							}
 							no = cd.getnext4(p);
-							//PRINTV(no)
 						}
 					}
 				}
-				//PRINTV(no);
 				// 四则运算
 				if (cd.cur() != '(' &&
 					(iscalc(no) || islogic(no))) // 这里暂时不考虑long oper!
@@ -897,7 +777,7 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 						cd.next();
 
 					type = cd.gettype();
-					if (rank_opr(o) >= rank_opr(no)) { // A*B+...
+					if (FUN_PTR(rank_opr)(o) >= FUN_PTR(rank_opr)(no)) { // A*B+...
 						if(getval(cd, type))
 							args++;
 
@@ -907,7 +787,7 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 					else { // A+B*...
 						getval(cd, type);
 						args = 1;
-						cd.valstack.push(expr(cd, 1, rank_opr(o)));
+						cd.valstack.push(expr(cd, 1, FUN_PTR(rank_opr)(o)));
 						args++;
 						cd.valstack.push(act(cd, args));
 						char nc = cd.cur();
@@ -936,13 +816,10 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 					(iscalc(cd.oprstack.cur()) || islogic(cd.oprstack.cur())) &&
 					oprs > 0)
 				{
-					return act(cd, args);//PRINT(")");
-					//PRINTV(oprs);
-					//return act(cd, args);
+					return act(cd, args);
 				}
 				else {
-					return cd.valstack.pop();//PRINT(")");
-					//return cd.valstack.pop();
+					return cd.valstack.pop();
 				}
 			}
 		}
@@ -957,7 +834,6 @@ void singvar(code& cd) {
 	cd.next3();
 	if (cd.cur() == '=')
 	{
-		//PRINT("singvar: " << name);
 		cd.next();
 
 		var v = expr(cd);
@@ -976,7 +852,6 @@ void singvar(code& cd) {
 		if (gvarmapstack.getvar(va, prop.c_str()))
 			prop = va.tostr();
 #endif
-		//PRINTV(prop);
 		cd.next3();
 		PHG_ASSERT(cd.cur() == '=');
 		cd.next();
@@ -1002,7 +877,6 @@ int statement_default(code& cd) {
 		}
 		else
 		{
-			//PRINT(*(cd.ptr));
 			opr lo = ((*p_nc) << 8) | *(p_nc + 1);
 			if (iscalc(lo)) {
 				expr(cd);
@@ -1026,7 +900,7 @@ int statement_default(code& cd) {
 	return 0;
 }
 
-// subtrunk
+// sub trunk
 int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false)
 {
 	while (!cd.eoc()) {
@@ -1035,18 +909,15 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 		switch (type) {
 			case '~': // break
 			{
-				//PRINT("break");
 				return 3; // 跳出
 			}
 			case ';':
 			{
-				//PRINT(";");
 				cd.nextline();
 				break;
 			}
 			case '}':
 			{
-				//PRINT("}")
 				cd.next();
 				if (bfunc && depth == 0)
 				{
@@ -1107,7 +978,6 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 				}
 				if (rettype == 3)
 				{
-					//if (tk)
 					finishtrunk(cd, 1);
 					return rettype;
 				}
@@ -1117,9 +987,6 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 			{
 				cd.next();
 				finishtrunk(cd, 0);
-
-				//cd.next();
-
 				continue;
 			}
 			case '@': // loop
@@ -1140,7 +1007,6 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 					var e = expr(cd);
 					cd.next();
 
-					//PRINT("iter ");
 					if (e != 0) {
 						bool tk = false;
 						if (cd.cur() == '{')
@@ -1149,15 +1015,12 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 							cd.next();
 						}
 						int rettype = subtrunk(cd, ret, depth + 1, 0, !tk);
-						//PRINTV(rettype);
 
 						if (rettype == 2) {
 							return rettype;
 						}
 						else if (rettype == 3) {
 							finishtrunk(cd, 1);
-							//if (cd.cur() == '}') 
-							//	cd.next();
 							return rettype;
 						}
 
@@ -1174,7 +1037,6 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 					cd.iter.push_back(0);
 					int loopcnt = int(expr(cd));
 					PRINT("@" << loopcnt);
-					//PRINTV(cd.cur())
 					bool tk = false;
 					if (cd.cur() == '{')
 					{
@@ -1189,7 +1051,6 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 							std::string name = "i";
 							for (auto it : cd.iter)
 								name = "_" + name;
-							//PRINT(name << "=" << i << " in " << loopcnt)
 							gvarmapstack.addvar(name.c_str(), var(cd.iter.back()));
 						}
 						cd.ptr = cp;
@@ -1200,9 +1061,6 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 						}
 						if (rettype == 3) {// break;
 							finishtrunk(cd, 1);
-							//if (cd.cur() == '}') 
-							//	cd.next();
-							//PRINTV(i << " in " << loopcnt);
 							break;
 						}
 					}
@@ -1250,8 +1108,7 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 	}
 	return 0;
 }
-
-// 函数
+// phg functions
 var callfunc_phg(code& cd) {
 	fnname fnm = cd.getname();
 	PRINT("callfunc: " << fnm << "(){");
@@ -1318,7 +1175,7 @@ var callfunc_phg(code& cd) {
 	//PRINT("}");
 	return ret;
 }
-
+// api
 var callfunc(code& cd) {
 	fnname fnm = cd.getname();
 	if (api_list.find(fnm) != api_list.end())
@@ -1366,7 +1223,7 @@ var callfunc(code& cd) {
 				}
 			}
 		}
-		var ret = apifun.fun(cd, args);
+		var ret = apifun(cd, args);
 		for (int i = 0; i < args; i++)
 			cd.valstack.pop_back();
 		//PRINTV(cd.cur());
@@ -1375,8 +1232,6 @@ var callfunc(code& cd) {
 	else
 		return callfunc_phg(cd);
 }
-
-// func
 void func(code& cd) {
 	fnname fnm = cd.getname();
 	PHG_PRINT("$define func: " << fnm);
@@ -1396,9 +1251,9 @@ void func(code& cd) {
 	finishtrunk(cd, 0);
 }
 
-// ------------------------------------------
+// ------------------------------------------------------------------------
 // 默认解析器
-// ------------------------------------------
+// ------------------------------------------------------------------------
 void parser_default(code& cd) {
 	PHG_PRINT("=========PHG========");
 	PHG_PRINT(cd.ptr);
@@ -1455,35 +1310,17 @@ void parser_default(code& cd) {
 	}
 }
 
-// ------------------------------------------
+// ------------------------------------------------------------------------
 // 初始化 与 外部调用
-// ------------------------------------------
+// ------------------------------------------------------------------------
 void init()
 {
 	errorcode = 0;
 
 	if (!parser)
-		parser = parser_default;
+		FUN_PTR_SET(parser, parser_default);
 	if (!statement)
-		statement = statement_default;
-}
-
-bool checkChinese(const char* str)
-{
-	char c;
-	while (true)
-	{
-		c = *str++;
-		//PRINT(c);
-		if (c == 0) break;
-		if (c & 0x80)
-			if (*str & 0x80)
-			{
-				//PRINTV(str);
-				return true;
-			}
-	}
-	return false;
+		FUN_PTR_SET(statement, statement_default);
 }
 void fixedstring(string& out, const char* str)
 {
@@ -1523,7 +1360,6 @@ bool checkcode(const char* str)
 // doexpr
 inline var doexpr(const char* str)
 {
-	//PRINT("doexpr " << str)
 	code cd(str);
 
 	return expr(cd);
@@ -1532,7 +1368,6 @@ inline var doexpr(const char* str)
 // dostring
 void dostring(const char* str)
 {
-	//PRINT("dostring ...")
 	init();
 
 #ifdef PHG_DEBUG
@@ -1542,8 +1377,7 @@ void dostring(const char* str)
 	}
 #endif
 	code c(str);
-	parser(c);
-	//PRINT("dostring done!\n");
+	FUN_PTR(parser)(c);
 }
 
 void dofile(const char* filename)
@@ -1575,10 +1409,10 @@ void dofile(const char* filename)
 	PRINT("\n");
 }
 // API
-inline void register_api(crstr name, api_fun fun)
+inline void register_api(crstr name, api_fun_t fun)
 {
-	//PRINT("regAPI: " << name);
-	api_list[name].fun = fun;
+	PRINT("regAPI: " << name);
+	api_list[name] = fun;
 }
 // dump
 inline void dump_strstack(code& cd)

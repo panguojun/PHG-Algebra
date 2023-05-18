@@ -40,7 +40,7 @@
 
 
 // base
-typedef struct varbase_t
+struct varbase_t
 {
 	union {
 		int ival = 0;
@@ -143,7 +143,7 @@ typedef struct varbase_t
 		}
 		return ret;
 	}
-}varbase_t;
+};
 #define VAR_BASE(name) \
 	name(int _ival) : varbase_t(_ival) {} \
 	name(real _fval) : varbase_t(_fval) {} \
