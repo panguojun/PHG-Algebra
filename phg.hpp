@@ -146,7 +146,7 @@ static inline bool checkline(char c) {
 static inline bool checkspace(char c) {
 	return (c == ' ' || c == '\t' || c == '\n' || c == '\r');
 }
-static inline bool checkspace2(char c) {
+static inline bool checkspace_(char c) {
 	return (c == ' ' || c == '\t');
 }
 static bool iscalc0(opr o) {
@@ -381,7 +381,7 @@ struct code
 		return (*ptr);
 	}
 	char next_() {
-		while (!eoc(++ptr) && checkspace2(*(ptr)));
+		while (!eoc(++ptr) && checkspace_(*(ptr)));
 		return (*ptr);
 	}
 	char next2() {
