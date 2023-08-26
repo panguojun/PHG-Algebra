@@ -398,10 +398,6 @@ struct code
 		}
 		return (*ptr);
 	}
-	char next4() {
-		while (!eoc(++ptr) && checkspace2(*(ptr)));
-		return (*ptr);
-	}
 	char nextline() {
 		while (!eoc(++ptr) && !checkline(*(ptr)));
 		return (*ptr) == '\0' ? '\0' : *(++ptr);
