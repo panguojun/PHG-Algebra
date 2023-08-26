@@ -40,7 +40,7 @@
 
 
 // base
-struct varbase_t
+typedef struct varbase_t
 {
 	union {
 		int ival = 0;
