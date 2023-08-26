@@ -38,8 +38,6 @@
 	ELEMENT() {}\
 	ELEMENT(int _val) {}
 
-
-// base
 typedef struct varbase_t
 {
 	union {
