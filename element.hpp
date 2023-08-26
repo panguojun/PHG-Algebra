@@ -6,21 +6,20 @@
 #ifdef ELEMENT
 #undef ELEMENT
 #endif
-#define ELEMENT		GROUP::var_t
+#define ELEMENT			GROUP::var_t
 #define OBJ			ELEMENT
 #define ENT			ELEMENT
 
 #ifdef STRING2VAR
 #undef STRING2VAR
 #endif
-#define STRING2VAR(str)	GROUP::var_t(str)
+#define STRING2VAR(str)		GROUP::var_t(str)
 // ------------------------------------------
 // 元素定义
 // ------------------------------------------
-struct var_t;
-using fun_set_t = std::function<void(const var_t& v)>;
-struct var_t
+typedef struct var_t
 {
+	using fun_set_t = std::function<void(const var_t& v)>;
 	string sval;
 	union {
 		int ival = 0;
