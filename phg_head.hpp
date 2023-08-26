@@ -10,14 +10,14 @@
 
 #define var			ELEMENT
 #define VAR			ELEMENT
-#define INVALIDVAR	ELEMENT(0)
+#define INVALIDVAR		ELEMENT(0)
 #ifndef STRING2VAR
-#define STRING2VAR(str)	INVALIDVAR
+#define STRING2VAR(str)		INVALIDVAR
 #endif
 
 #undef PHGPRINT
-#define PHGPRINT	GROUP::_PHGPRINT
-#define GROUPNAME	#GROUP
+#define PHGPRINT		GROUP::_PHGPRINT
+#define GROUPNAME		#GROUP
 
 #define PHG_VAR(name, defaultval) (GROUP::gvarmapstack.stack.empty() || GROUP::gvarmapstack.stack.front().find(#name) == GROUP::gvarmapstack.stack.front().end() ? (var)defaultval : GROUP::gvarmapstack.stack.front()[#name])
 #define PHG_PARAM(index)	cd.valstack.get(args - index)
@@ -37,6 +37,16 @@
 #define DEFAULT_ELEMENT_LT \
 	ELEMENT() {}\
 	ELEMENT(int _val) {}
+
+#define VAR_BASE(name) \
+	name(int _ival) : varbase_t(_ival) {} \
+	name(real _fval) : varbase_t(_fval) {} \
+	bool operator == (int v) const { \
+		return varbase_t::operator==(v); \
+	} \
+	bool operator != (int v) const { \
+		return varbase_t::operator!=(v); \
+	}
 
 typedef struct varbase_t
 {
@@ -142,12 +152,3 @@ typedef struct varbase_t
 		return ret;
 	}
 };
-#define VAR_BASE(name) \
-	name(int _ival) : varbase_t(_ival) {} \
-	name(real _fval) : varbase_t(_fval) {} \
-	bool operator == (int v) const { \
-		return varbase_t::operator==(v); \
-	} \
-	bool operator != (int v) const { \
-		return varbase_t::operator!=(v); \
-	}
