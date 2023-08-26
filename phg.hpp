@@ -74,6 +74,7 @@ yy = yy + 1;
 #define FUN_PTR_SET(fptr, func)		fptr = func
 #define MEMBER_FUNC(rettype, func)	rettype (*func)
 #endif
+
 // ------------------------------------------------------------------------
 //#ifndef code	
 struct code;
@@ -358,14 +359,14 @@ struct varmapstack_t
 // ------------------------------------------------------------------------
 struct code
 {
-	const char* ptr = 0;			// code pointer
+	const char* ptr = 0;				// code pointer
 	const char* start = 0;
 	codestack_t			codestack;	// 代码栈
 	oprstack_t			oprstack;	// 操作栈
 	valstack_t			valstack;	// 值栈
 	std::vector<std::string>		strstack;		// 字符串栈(存变量名）
 	std::map<fnname, functionptr>	funcnamemap;	// 函数map
-	std::vector<int>	iter;		// iterator
+	std::vector<int>	iter;			// iterator
 
 	code() {}
 	code(const char* buf) {
@@ -555,6 +556,7 @@ bool getval(code& cd, short type) {
 	}
 	return false;
 }
+
 // finished trunk
 void finishtrunk(code& cd, int trunkcnt = 0)
 {
@@ -1108,6 +1110,7 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 	}
 	return 0;
 }
+
 // phg functions
 var callfunc_phg(code& cd) {
 	fnname fnm = cd.getname();
@@ -1175,7 +1178,8 @@ var callfunc_phg(code& cd) {
 	//PRINT("}");
 	return ret;
 }
-// api
+
+// call API functions
 var callfunc(code& cd) {
 	fnname fnm = cd.getname();
 	if (api_list.find(fnm) != api_list.end())
@@ -1232,6 +1236,7 @@ var callfunc(code& cd) {
 	else
 		return callfunc_phg(cd);
 }
+
 void func(code& cd) {
 	fnname fnm = cd.getname();
 	PHG_PRINT("$define func: " << fnm);
@@ -1322,6 +1327,7 @@ void init()
 	if (!statement)
 		FUN_PTR_SET(statement, statement_default);
 }
+
 void fixedstring(string& out, const char* str)
 {
 	out.clear();
@@ -1346,6 +1352,7 @@ void fixedstring(string& out, const char* str)
 		out += c;
 	}
 }
+
 bool checkcode(const char* str)
 {
 	string codestr;
@@ -1357,7 +1364,8 @@ bool checkcode(const char* str)
 	}
 	return true;
 }
-// doexpr
+
+// do expression
 inline var doexpr(const char* str)
 {
 	code cd(str);
@@ -1365,7 +1373,7 @@ inline var doexpr(const char* str)
 	return expr(cd);
 }
 
-// dostring
+// do string
 void dostring(const char* str)
 {
 	init();
@@ -1380,6 +1388,7 @@ void dostring(const char* str)
 	FUN_PTR(parser)(c);
 }
 
+// do file
 void dofile(const char* filename)
 {
 	PRINT("dofile:" << filename);
@@ -1408,12 +1417,14 @@ void dofile(const char* filename)
 	delete[]buf;
 	PRINT("\n");
 }
+
 // API
 inline void register_api(crstr name, api_fun_t fun)
 {
 	PRINT("regAPI: " << name);
 	api_list[name] = fun;
 }
+
 // dump
 inline void dump_strstack(code& cd)
 {
