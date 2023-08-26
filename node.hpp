@@ -101,11 +101,11 @@ typedef struct tree_t
 		}
 		delete(ot);
 	}
-}tree_t;
+};
 
 // -----------------------------------------------------------------------
-tree_t* gtree = 0;						// 暂时使用全局树
-vector<tree_t*>	work_stack;				// 工作栈
+tree_t* gtree = 0;				// 暂时使用全局树
+vector<tree_t*>	work_stack;			// 工作栈
 std::string		cur_property = "pr1";	// 当前属性
 extern void _crt_array(code& cd, tree_t* tree, const string& pre, int depth, const string& selector);
 extern void _crt_sequ(code& cd, tree_t* tree, const string& pre);
@@ -991,12 +991,7 @@ void NODE_REG_API()
 
 	_REG_API(order, kv_order);		// kv_order
 	_REG_API(im, api_im);			// ME
-	_REG_API(bye, api_bye);			// ME = NULL(正在放弃中...)
 	_REG_API(on, api_on);			// 当前属性
-	_REG_API(array, array);			// 节点阵列 (正在放弃中...)
-	_REG_API(sequ, sequ);			// 节点序列 (正在放弃中...)
-
-	_REG_API(prop, property);		// 添加属性(正在放弃中...)
 	_REG_API(wak, walknode);		// 遍历节点树
 	_REG_API(expr, do_expr);		// 执行表达式
 	_REG_API(dump, dump_node);		// dump
