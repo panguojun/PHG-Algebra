@@ -73,8 +73,9 @@ name{
 	Phg/onevent : #PHG expression 
 }
 # test me
-{	
-	a { 	p:1,0,0;
+{
+	a {}
+	{ 	p:1,0,0;
 		b{p:2,0,0}
 		<a,a,a>
 		[a,a,a]           
