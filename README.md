@@ -263,3 +263,15 @@ There are several ways to use PHG:
 * +--jsonparser.hpp # json parser
 * +--xmlparser.hpp # xml parser
 * +--scene.hpp # Entry class
+* 
+* ## Python PHG
+```bash
+pip install phg_vis
+```
+
+```python
+from phg import vis
+vis('{md:box 1 2 3}')
+```
+
+
