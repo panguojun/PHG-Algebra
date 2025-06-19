@@ -1,23 +1,23 @@
-#undef var
-#undef INVALIDVAR
-#undef rank
-#undef fun_t
-#undef parser_fun
-#undef statement_fun
-#undef tree_fun
-#undef callfunc
-#undef gvarmapstack
+#undef	var
+#undef	INVALIDVAR
+#undef	rank
+#undef	fun_t
+#undef	parser_fun
+#undef	statement_fun
+#undef	tree_fun
+#undef	callfunc
+#undef	gvarmapstack
 
-#define var			ELEMENT
+#define phg_var		ELEMENT
 #define VAR			ELEMENT
-#define INVALIDVAR		ELEMENT(0)
+#define INVALIDVAR	ELEMENT(0)
 #ifndef STRING2VAR
-#define STRING2VAR(str)		INVALIDVAR
+#define STRING2VAR(str)	INVALIDVAR
 #endif
 
-#undef PHGPRINT
-#define PHGPRINT		GROUP::_PHGPRINT
-#define GROUPNAME		#GROUP
+#undef  PHGPRINT
+#define PHGPRINT	GROUP::_PHGPRINT
+#define GROUPNAME	#GROUP
 
 #define PHG_VAR(name, defaultval) (GROUP::gvarmapstack.stack.empty() || GROUP::gvarmapstack.stack.front().find(#name) == GROUP::gvarmapstack.stack.front().end() ? (var)defaultval : GROUP::gvarmapstack.stack.front()[#name])
 #define PHG_PARAM(index)	cd.valstack.get(args - index)
@@ -38,26 +38,19 @@
 	ELEMENT() {}\
 	ELEMENT(int _val) {}
 
-#define VAR_BASE(name) \
-	name(int _ival) : varbase_t(_ival) {} \
-	name(real _fval) : varbase_t(_fval) {} \
-	bool operator == (int v) const { \
-		return varbase_t::operator==(v); \
-	} \
-	bool operator != (int v) const { \
-		return varbase_t::operator!=(v); \
-	}
-
-typedef struct varbase_t
+// -------------------------------
+// Varable Base
+// -------------------------------
+struct varbase_t
 {
+	int type = 1;	// 1 -int, 2 -real, others
 	union {
 		int ival = 0;
 		real fval;
 	};
 	int resid = -1;
-	int type = 1; // 1 -int, 2 -real, others
 
-	varbase_t() { }
+	varbase_t() {}
 	varbase_t(int _val) {
 		type = 1; ival = _val; resid = -1;
 	}
@@ -68,6 +61,11 @@ typedef struct varbase_t
 	{
 		//PRINT("varbase_t copy " << v.type);
 		(*this) = v;
+	}
+
+	operator int() const
+	{
+		return ival;
 	}
 
 	void operator = (const varbase_t& v)
@@ -104,12 +102,6 @@ typedef struct varbase_t
 	bool operator != (const varbase_t& v) const
 	{
 		return !(*this == v);
-	}
-
-	operator int() const
-	{
-		//PRINT("varbase_t::int " << ival)
-		return ival;
 	}
 
 	varbase_t operator + (varbase_t& v) const
@@ -152,3 +144,13 @@ typedef struct varbase_t
 		return ret;
 	}
 };
+
+#define VAR_BASE(name) \
+	name(int _ival)  : varbase_t(_ival) {} \
+	name(real _fval) : varbase_t(_fval) {} \
+	bool operator == (int v) const { \
+		return varbase_t::operator==(v); \
+	} \
+	bool operator != (int v) const { \
+		return varbase_t::operator!=(v); \
+	}
