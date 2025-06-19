@@ -1,68 +1,77 @@
-/****************************************************************************
-				PHG 2.0 
-			本文件源自于13年的一个个人小项目
-			内涵群论与对称性，极简主义等理念
-			运算式编程
-语法示例:
+/************************************************************************************************
+	            			[PHG 2.0]
+	        This file originates from a personal project in 2013
+	        It incorporates concepts from group theory, symmetry, and minimalism
+	        Expression-based programming
 
-#function
+Syntax Examples:
+
+# Function Definition
 $blend(a, b, alpha)
 {
-	$a*(1-alpha) + b*alpha;
+    $a*(1-alpha) + b*alpha;
 }
 
-#call function
+# Function Call
 ab = blend(1, 8, 0.8);
 >ab;
 
-#if - else
+# If-Else Statement
 t = 0;
 ?(i = 1){
-t = t + 1;
+    t = t + 1;
 }:{
-t = t - 1;
+    t = t - 1;
 }
 >t;
 
-#calc
+# Calculation
 yy = 8*3 + 1*8;
 > yy;
 
-#loop
+# Loop
 @(yy < 8){
-yy = yy + 1;
+    yy = yy + 1;
 }
 > yy;
 
-****************************************************************************/
+************************************************************************************************/
 //namespace PHG{
-#define PHG_DEBUG
-#define SYNTAXERR(msg)	ERRORMSG("ERR: " << msg << "\nAt: \n" << cd.ptr << " Pos:" << int(cd.ptr-cd.start))
-#ifdef WIN
-#define PHG_ASSERT(x)	{if(!(x)){std::stringstream ss; ss << "PHG ASSERT FAILED! " << __FILE__ << "(" << __LINE__ << ")"; ::MessageBoxA(0, ss.str().c_str(), "PHG ASSERT", 0); errorcode = 1;} }
+#define SYNTAXERR0(msg)	ERRORMSG("PHG ERR: " << msg << "\n")
+#define SYNTAXERR(msg)	ERRORMSG("PHG ERR: " << msg << "\nat: \n" << string(cd.ptr).substr(0, 18) << "... pos: " << int(cd.ptr - cd.start))
+#ifdef WINDOWS
+	#define PHG_ASSERT(x)			{if(!(x)){std::stringstream ss; ss << "PHG ASSERT FAILED! " << __FILE__ << "(" << __LINE__ << "): " << #x; ::MessageBoxA(0, ss.str().c_str(), "PHG ASSERT", 0); errorcode = 1;} }
 #else
-#define PHG_ASSERT(x)	{if(!(x)){std::stringstream ss; ss << "PHG ASSERT FAILED! " << __FILE__ << "(" << __LINE__ << ")"; PRINT(ss.str()); errorcode = 1;} }
+	#define PHG_ASSERT(x)			{if(!(x)){std::stringstream ss; ss << "PHG ASSERT FAILED! " << __FILE__ << "(" << __LINE__ << "): " << #x; PHG_PRINT(ss.str()); errorcode = 1;} }
 #endif
-#define PHG_PRINT(x)	{if(becho) PRINT(x)}
-#define INVALIDFUN		cd.funcnamemap.end()
 
-#define ADD_VAR			GROUP::gvarmapstack.addvar
-#define ADD_SVAR(s,v)	GROUP::gvarmapstack.addvar(s.c_str(),v)
-#define SET_VAR			ADD_VAR
-#define SET_SVAR		ADD_SVAR
-#define GET_VAR			GROUP::gvarmapstack.getvar
+#define PHG_PRINT(x)				{if(becho) PRINT(x)}
+#ifdef PHG_DEBUG
+	#define PHG_DEBUG_PRINT(x)		{PRINT("[PHG DEBUG] " << x)}
+#else
+	#define PHG_DEBUG_PRINT(x)
+#endif
 
-#define varname			std::string
-#define to_int(v)		(int)(v)
+#define INVALIDFUN					cd.funcnamemap.end()
 
-#define opr				unsigned short
-#define fnname			std::string
-#define functionptr		const char*
+#define ADD_VAR						GROUP::gvarmapstack.addvar
+#define ADD_SVAR(s,v)				GROUP::gvarmapstack.addvar(s.c_str(),v)
+#define SET_VAR						ADD_VAR
+#define SET_SVAR					ADD_SVAR
+#define GET_VAR						GROUP::gvarmapstack.getvar
+#define GET_VAR_S(s)				GROUP::gvarmapstack.getvar(s.c_str())
 
-#define NAME			0x01FF
-#define NUMBER			0x02FF
-#define OPR				0x03FF
-#define LGOPR			0x04FF
+#define varname						std::string
+#define to_int(v)					(int)(v)
+
+#define phg_opr						unsigned short
+#define fnname						std::string
+#define functionptr					const char*
+
+#define NAME						0x01FF
+#define NUMBER						0x02FF
+#define OPR							0x03FF
+#define LGOPR						0x04FF
 
 #ifdef  STRUCT_PHG
 #define FUN_PTR(fptr)				(this->*fptr)
@@ -76,69 +85,77 @@ yy = yy + 1;
 #endif
 
 // ------------------------------------------------------------------------
-//#ifndef code	
+// 变量
+// ------------------------------------------------------------------------
 struct code;
-//#endif
+
 #ifndef callfunc
-var callfunc(code& cd);
+phg_var callfunc(code& cd);
 #endif
+
 #ifndef parser_fun
 typedef MEMBER_FUNC(void, parser_fun)(code& cd);
 #endif
 parser_fun parser = 0;
+
 #ifndef statement_fun
 typedef MEMBER_FUNC(int, statement_fun)(code& cd);
 #endif
 statement_fun statement = 0;
 
 static char rank[256];			// 是运算符等级设定数组
-unsigned char rank_opr0(opr c) { return rank[(char)c]; }
-typedef MEMBER_FUNC(unsigned char, rank_opr_fun)(opr);
+
+typedef MEMBER_FUNC(unsigned char, rank_opr_fun)(phg_opr);
+unsigned char rank_opr0(phg_opr c) { return rank[(char)c]; }
 rank_opr_fun rank_opr = rank_opr0;
 
-bool(*get_funparam)(var&, const char*, const char*) = 0;
+bool(*get_funparam)(phg_var&, const char*, const char*) = 0;
 
-var(*get_var)(const char*) = 0;
+bool(*get_var)(const char*, phg_var&) = 0;
 
-void(*add_var)(const char*, var&) = 0;
+bool(*add_var)(const char*, phg_var&) = 0;
 
-void(*add_var2)(code& cd, const char*, const char*, var&) = 0;
+void(*add_var2)(code& cd, const char*, const char*, phg_var&) = 0;
 
-void(*subtree)(code& cd, const char*, var&) = 0;
+void(*subtree)(code& cd, const char*, phg_var&) = 0;
 
-void(*tableindex)(const char*, var&) = 0;
+void(*tableindex)(const char*, phg_var&) = 0;
 
 #ifndef gvarmapstack
 struct varmapstack_t;
 extern varmapstack_t	gvarmapstack;
 #endif
-bool	becho = true;
 
 // API
-#ifndef api_fun
-typedef var(*api_fun_t)(code& cd, int stackpos);
+#ifndef api_fun_t
+using api_fun_t = std::function<phg_var(code& cd, int stackpos)>;
 #endif 
 std::map<std::string, api_fun_t> api_list;
 
 // 表格数据 [1,2,3]
-void(*table)(code& cd) = 0;
+void(*fun_table)(code& cd) = 0;
 
 // 计算过程
-void(*process)(code& cd) = 0;
+void(*fun_process)(code& cd) = 0;
 
 // 树节点
-#ifndef tree_fun
-void(*tree)(code& cd) = 0;// 树节点 {A,B,C}
+#ifndef tree_fun_t
+void(*fun_tree)(code& cd) = 0;// 树节点 {A,B,C}
 #else
-tree_fun tree = 0;
+tree_fun_t fun_tree = 0;
 #endif 
 
 // 运算
-MEMBER_FUNC(var, act)(code& cd, int args) = 0;
+MEMBER_FUNC(phg_var, fun_act)(code& cd, int args) = 0;
+
+// 打印信息开关
+bool becho = true;
 
 // 错误处理
-int errorcode = 0;
+int	errorcode = 0;
 
+// ------------------------------------------------------------------------
+// 工具函数
 // ------------------------------------------------------------------------
 static inline bool checkline(char c) {
 	return (c == '\n' || c == '\r');
@@ -149,7 +166,7 @@ static inline bool checkspace(char c) {
 static inline bool checkspace_(char c) {
 	return (c == ' ' || c == '\t');
 }
-static bool iscalc0(opr o) {
+static bool iscalc0(phg_opr o) {
 	char c = (char)o;
 #ifdef CHECK_CALC
 	return CHECK_CALC;
@@ -157,9 +174,9 @@ static bool iscalc0(opr o) {
 	return c == '+' || c == '-' || c == '*' || c == '/' || c == '^' || c == '.';
 #endif
 }
-bool (*iscalc)(opr o) = iscalc0;
+bool (*iscalc)(phg_opr o) = iscalc0;
 
-static bool islogic0(opr o) {
+static bool islogic0(phg_opr o) {
 	char c = (char)o;
 #ifdef CHECK_LOGIC
 	return CHECK_LOGIC;
@@ -167,7 +184,7 @@ static bool islogic0(opr o) {
 	return c == '>' || c == '<' || c == '=' || c == '&' || c == '|' || c == '!';
 #endif
 }
-bool (*islogic)(opr o) = islogic0;
+bool (*islogic)(phg_opr o) = islogic0;
 
 static inline bool isname(char c) {
 	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_';
@@ -182,7 +199,7 @@ static inline bool isbracket(char c) {
 // ------------------------------------------------------------------------
 // 堆栈
 // ------------------------------------------------------------------------
-// stacks define
+// code stack
 struct codestack_t
 {
 	std::vector<const char*> stack;
@@ -191,7 +208,7 @@ struct codestack_t
 		stack.push_back(c);
 	}
 	const char* pop() {
-		cach = stack.back();
+		cach = move(stack.back());
 		stack.pop_back();
 		return cach.c_str();
 	}
@@ -207,33 +224,34 @@ struct codestack_t
 	}
 	codestack_t() {}
 };
+// value stack
 struct valstack_t
 {
-	std::vector<var> stack;
-	void push(const var& v) {
+	std::vector<phg_var> stack;
+	void push(const phg_var& v) {
 		stack.emplace_back(v);
 	}
-	var pop() {
+	phg_var pop() {
 		if (stack.empty())
 		{
 			ERRORMSG("pop value error!");
 			return INVALIDVAR;
 		}
-		var ret = stack.back();
+		phg_var ret = move(stack.back());
 		stack.pop_back();
 		return ret;
 	}
-	bool pop(var& v) {
+	bool pop(phg_var& v) {
 		if (stack.empty())
 		{
 			ERRORMSG("pop value error!");
 			return false;
 		}
-		v = stack.back();
+		v = move(stack.back());
 		stack.pop_back();
 		return true;
 	}
-	var& back() {
+	phg_var& back() {
 		return stack.back();
 	}
 	void pop_back() {
@@ -244,12 +262,12 @@ struct valstack_t
 		}
 		stack.pop_back();
 	}
-	var& cur() {
+	phg_var& cur() {
 		PHG_ASSERT(!stack.empty());
 		return stack[top()];
 	}
-	var& get(int pos) {
-		if (stack.empty() || top() - pos < 0)
+	phg_var& get(int pos) {
+		if (stack.empty() || pos < 0 || top() - pos < 0)
 		{
 			ERRORMSG("get value error!");
 		}
@@ -262,25 +280,24 @@ struct valstack_t
 	{
 		stack.clear();
 	}
-	valstack_t() {}
 };
-
+// operator stack
 struct oprstack_t
 {
-	std::vector<opr> stack;
-	void push(opr c) {
+	std::vector<phg_opr> stack;
+	void push(phg_opr c) {
 		stack.push_back(c);
 	}
-	opr pop() {
-		opr ret = stack.back();
+	phg_opr pop() {
+		phg_opr ret = move(stack.back());
 		stack.pop_back();
 		return ret;
 	}
-	opr cur() {
+	phg_opr cur() {
 		PHG_ASSERT(!stack.empty());
 		return stack[top()];
 	}
-	void setcur(opr o) {
+	void setcur(phg_opr o) {
 		PHG_ASSERT(!stack.empty());
 		stack[top()] = o;
 	}
@@ -292,32 +309,41 @@ struct oprstack_t
 	}
 	oprstack_t() {}
 };
-
+// var stack
 struct varmapstack_t
 {
-	using varmap_t = std::map<varname, var>;
+	using varmap_t = std::map<varname, phg_var>;
 	std::vector<varmap_t> stack;
 
 	void push()
 	{
-		stack.push_back(varmap_t());
+		stack.emplace_back();
 	}
 	void pop()
 	{
-		stack.pop_back();
+		if (!stack.empty())
+			stack.pop_back();
 	}
-	void addvar(const char* name, const var& v)
+	void addvar(const char* name, const phg_var& v)
+	{
+		// PRINT("addvar:" << name);
+		if (stack.empty())
+			push();
+
+		stack.back()[name] = v;
+	}
+	void addvar(const varname& name, const phg_var& v)
 	{
 		if (stack.empty())
 			push();
 
 		stack.back()[name] = v;
 	}
-	var getvar(const char* name)
+	phg_var getvar(const char* name)
 	{
 		if (stack.empty())
 		{
-			ERRORMSG("var: " << name << " undefined!");
+			ERRORMSG("phg_var: '" << name << "' undefined!");
 			return INVALIDVAR;
 		}
 		for (int i = stack.size() - 1; i >= 0; i--)
@@ -328,10 +354,10 @@ struct varmapstack_t
 				return it->second;
 			}
 		}
-		ERRORMSG("var: " << name << " undefined!");
+		ERRORMSG("phg_var: '" << name << "' undefined!");
 		return INVALIDVAR;
 	}
-	bool getvar(var& vout, const char* name)
+	bool getvar(phg_var& vout, const char* name)
 	{
 		if (stack.empty())
 		{
@@ -350,7 +376,20 @@ struct varmapstack_t
 	}
 	void clear()
 	{
+		PRINT("gvarmapstack clear");
 		stack.clear();
+	}
+	void dump() const
+	{
+		PRINT("dump varmapstack:");
+		for (size_t i = 0; i < stack.size(); ++i)
+		{
+			PRINT("stack " << i << ":");
+			for (const auto& pair : stack[i])
+			{
+				PRINT("  " << pair.first << ";");
+			}
+		}
 	}
 } gvarmapstack;
 
@@ -359,14 +398,14 @@ struct varmapstack_t
 // ------------------------------------------------------------------------
 struct code
 {
-	const char* ptr = 0;				// code pointer
-	const char* start = 0;
-	codestack_t			codestack;	// 代码栈
-	oprstack_t			oprstack;	// 操作栈
-	valstack_t			valstack;	// 值栈
+	const char*		ptr = 0;		// code pointer
+	const char*		start = 0;
+	codestack_t		codestack;		// 代码栈
+	oprstack_t		oprstack;		// 操作栈
+	valstack_t		valstack;		// 值栈
 	std::vector<std::string>		strstack;		// 字符串栈(存变量名）
 	std::map<fnname, functionptr>	funcnamemap;	// 函数map
-	std::vector<int>	iter;			// iterator
+	std::vector<int>	iter;		// iterator
 
 	code() {}
 	code(const char* buf) {
@@ -493,8 +532,9 @@ struct code
 		return 0;
 	}
 };
-// chars to var
-inline var chars2var(code& cd) {
+
+// chars to phg_var
+inline phg_var chars2var(code& cd) {
 	char buff[64];
 	bool isreal = false;
 	int i = 0;
@@ -509,10 +549,30 @@ inline var chars2var(code& cd) {
 	}
 	buff[i] = '\0';
 	cd.strstack.push_back(buff);
-	return isreal ? var((real)atof(buff)) : var(atoi(buff));
+	return isreal ? phg_var((real)atof(buff)) : phg_var(atoi(buff));
 }
 
-// get value (number/function/var)
+// 支持科学计数法
+inline phg_var chars2varEX(code& cd) {
+	char buff[64];
+	bool isreal = false;
+
+	std::regex pattern("[-+]?\\d+(\\.\\d+)?([eE][-+]?\\d+)?");
+	std::smatch matches;
+	std::string str(cd.ptr);
+
+	if (std::regex_search(str, matches, pattern)) {
+		std::string match = matches[0].str();
+		strcpy(buff, match.c_str());
+		isreal = true;
+		cd.ptr += match.length();
+		return isreal ? phg_var(std::stof(buff)) : phg_var(atoi(buff));
+	}
+
+	return chars2var(cd);
+}
+
+// Get value (number/function/phg_var)
 bool getval(code& cd, short type) {
 
 	if (type == NUMBER) {
@@ -530,17 +590,25 @@ bool getval(code& cd, short type) {
 		}
 		else
 		{// 变量
+			bool get_var_suc = false;
 			if (get_var)
-				cd.valstack.push(get_var(name));
-			else
 			{
-				var v;
+				phg_var v;
+				if (get_var(name, v))
+				{
+					cd.valstack.push(std::move(v));
+					get_var_suc = true;
+				}
+			}
+			if(!get_var_suc)
+			{
+				phg_var v;
 				if (gvarmapstack.getvar(v, name))
 					cd.valstack.push(std::move(v));
 				else
 				{
 #ifdef USE_STRING	
-					cd.valstack.push(var(name)); // 变量找不到 按照字符串处理
+					cd.valstack.push(phg_var(name)); // 变量找不到 按照字符串处理
 #endif
 				}
 			}
@@ -552,8 +620,7 @@ bool getval(code& cd, short type) {
 	}
 	return false;
 }
-
-// finished trunk
+// Finished trunk
 void finishtrunk(code& cd, int trunkcnt = 0)
 {
 	const char sk = '{', ek = '}';
@@ -583,11 +650,9 @@ void finishtrunk(code& cd, int trunkcnt = 0)
 		cd.next();
 	}
 }
-
-// get string
+// Get string
 inline std::string getstring(code& cd, char s1 = '\'', char s2 = '\"', char ed = '\"')
 {
-	//PRINT("getstring...")
 	std::string content;
 	while (!cd.eoc()) {
 		char c = cd.cur();
@@ -606,26 +671,29 @@ inline std::string getstring(code& cd, char s1 = '\'', char s2 = '\"', char ed =
 		cd.next0();
 		break;
 	}
-	//PRINTV(content)
 	return content;
 }
+
 // 表达式 for example: x=a+b, v = fun(x), x > 2 || x < 5
-var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
+phg_var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 {
-	//PRINT("expr( ");
+	PHG_DEBUG_PRINT("expr( ");
+
 	int args = args0;
 	int oprs = 0;
 	bool brace = true; // 避免大括号歧义
 	while (!cd.eoc()) {
 		short type = cd.gettype();
-		//PRINTV(cd.cur())
+
+		PHG_DEBUG_PRINT("cd.cur: " << cd.cur())
+
 		if (type == '\"' || type == '\'')
 		{
 			cd.next0();
 			string str = getstring(cd, type, type, type);
 			cd.strstack.push_back(str);
 #ifdef USE_STRING			
-			cd.valstack.push(std::move(var(str.c_str())));
+			cd.valstack.push(std::move(str));
 			args++;
 			//	PRINTV(cd.cur());
 #else
@@ -645,7 +713,7 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 				//MSGBOX(str)
 				cd.strstack.push_back(str);
 #ifdef USE_STRING			
-				cd.valstack.push(std::move(var(str.c_str())));
+				cd.valstack.push(std::move(str));
 				args++;
 				//	PRINTV(cd.cur());
 #else
@@ -665,8 +733,8 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 						}
 					body += c;
 				}
-				PRINT("tableindex: " << body);
-				var ret;
+				PHG_DEBUG_PRINT("tableindex: " << body);
+				phg_var ret;
 				if (tableindex)
 				{
 					tableindex(body.c_str(), ret);
@@ -687,8 +755,8 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 				}
 				stbody += c;
 			}
-			PRINT("{" << stbody << "}");
-			var ret;
+			PHG_DEBUG_PRINT("{" << stbody << "}");
+			phg_var ret;
 			ASSERT(subtree != 0)
 			subtree(cd, stbody.c_str(), ret);
 			cd.valstack.push(ret);
@@ -701,21 +769,21 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 			brace = false;
 		}
 		else if (type == OPR || type == LGOPR) {
-			opr o = cd.cur();
+			phg_opr o = cd.cur();
 			if (FUN_PTR(rank_opr)(o) == FUN_PTR(rank_opr)('.') - 1) // 注意：指数位置运算符优先级永远紧跟在(.)之后！
 			{// 指数位置一元运算符
 				cd.oprstack.push(o);
 				oprs++;
 				cd.next();
-				cd.valstack.push(FUN_PTR(act)(cd, 1));
+				cd.valstack.push(FUN_PTR(fun_act)(cd, 1));
 				args++;
 				continue;
 			}
 			{
-				opr lo = (o << 8) | cd.getnext0();
+				phg_opr lo = (o << 8) | cd.getnext0();
 				if (iscalc(lo)) {
 					o = lo;
-					//PRINT("long oper: " << o);
+					PHG_DEBUG_PRINT("long oper: " << o);
 				}
 			}
 			if (FUN_PTR(rank_opr)(o) <= rank0)
@@ -779,7 +847,7 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 						if(getval(cd, type))
 							args++;
 
-						cd.valstack.push(act(cd, args));
+						cd.valstack.push(fun_act(cd, args));
 						args = 1;
 					}
 					else { // A+B*...
@@ -787,7 +855,7 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 						args = 1;
 						cd.valstack.push(expr(cd, 1, FUN_PTR(rank_opr)(o)));
 						args++;
-						cd.valstack.push(act(cd, args));
+						cd.valstack.push(fun_act(cd, args));
 						char nc = cd.cur();
 						if (iscalc(nc) || islogic(nc)) {
 							args = 1;
@@ -814,7 +882,8 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 					(iscalc(cd.oprstack.cur()) || islogic(cd.oprstack.cur())) &&
 					oprs > 0)
 				{
-					return act(cd, args);
+					ASSERT(fun_act);
+					return fun_act(cd, args);
 				}
 				else {
 					return cd.valstack.pop();
@@ -826,7 +895,8 @@ var expr(code& cd, int args0 = 0, unsigned char rank0 = 0)
 	errorcode = 1;
 	return INVALIDVAR;
 }
-// single var
+
+// Single phg_var
 void singvar(code& cd) {
 	std::string name = cd.getname();
 	cd.next3();
@@ -834,10 +904,13 @@ void singvar(code& cd) {
 	{
 		cd.next();
 
-		var v = expr(cd);
+		phg_var v = expr(cd);
 		cd.next();
 		if (add_var)
-			add_var(name.c_str(), v);
+		{
+			if(add_var(name.c_str(), v))
+				gvarmapstack.addvar(name.c_str(), v);
+		}
 		else
 			gvarmapstack.addvar(name.c_str(), v);
 	}
@@ -846,21 +919,21 @@ void singvar(code& cd) {
 		cd.next();
 		std::string prop = cd.getname();
 #ifdef USE_STRING
-		var va;
+		phg_var va;
 		if (gvarmapstack.getvar(va, prop.c_str()))
 			prop = va.tostr();
 #endif
 		cd.next3();
 		PHG_ASSERT(cd.cur() == '=');
 		cd.next();
-		var v = expr(cd);
+		phg_var v = expr(cd);
 		cd.next();
 		if (add_var2)
 			add_var2(cd, name.c_str(), prop.c_str(), v);
 	}
 }
 
-// statement
+// Statement
 int statement_default(code& cd) {
 
 	short type = cd.gettype();
@@ -875,35 +948,37 @@ int statement_default(code& cd) {
 		}
 		else
 		{
-			opr lo = ((*p_nc) << 8) | *(p_nc + 1);
+			phg_opr lo = ((*p_nc) << 8) | *(p_nc + 1);
 			if (iscalc(lo)) {
 				expr(cd);
 			}
 			else
 			{
-				SYNTAXERR("statement error : '" << *p_nc << "'");
+				SYNTAXERR("statement error : '" << (*p_nc) << "' is not calc!");
 				errorcode = 1;
 			}
 		}
 	}
 	else if (cd.cur() == '>') {
 		cd.next();
-		PHGPRINT("> ", expr(cd));
+		phg_var ret = expr(cd);
+		PHGPRINT("> ", ret);
 		cd.next();
 	}
 	else
 	{
-		cd.next();
+		if(!cd.eoc())
+			cd.next();
 	}
 	return 0;
 }
 
-// sub trunk
-int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false)
+// Sub Trunk
+int subtrunk(code& cd, phg_var& ret, int depth, bool bfunc, bool bsingleline = false)
 {
 	while (!cd.eoc()) {
 		short type = cd.gettype();
-		//PRINTV(cd.cur());
+
 		switch (type) {
 			case '~': // break
 			{
@@ -911,31 +986,29 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 			}
 			case ';':
 			{
-				cd.nextline();
-				break;
-			}
+				cd.next();
+			}break;
 			case '}':
 			{
 				cd.next();
 				if (bfunc && depth == 0)
 				{
-					PRINT("}");
+					PHG_DEBUG_PRINT("}");
 					return 2; // 函数返回
 				}
-				break;
-			}
+				
+			}break;
 			case '\'':			
 			case '#':
 			{
 				cd.nextline();
-				break;
-			}
+
+			}break;
 			case '\\':
 			{
 				if (*(cd.ptr + 1) == '\\')
 					cd.nextline();
-				break;
-			}
+			}break;
 			case '?':  // if else
 			{
 				PHG_ASSERT(cd.next() == '(');
@@ -943,7 +1016,8 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 				cd.next();
 				bool e = bool(expr(cd));
 				cd.next();
-				if (e == false) {// else
+				if (!e) 
+				{// else
 					finishtrunk(cd, 0);
 
 					if (cd.cur() == '}')
@@ -952,7 +1026,9 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 						break;
 					}
 
-					if (cd.cur() == ':')
+					if (cd.cur() != ':')
+						continue;
+					else
 					{
 						cd.next();
 						if (cd.cur() == '(')
@@ -960,8 +1036,6 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 							goto IF_STATEMENT;
 						}
 					}
-					else
-						continue;
 				}
 				bool tk = false;
 				if (cd.cur() == '{')
@@ -971,16 +1045,14 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 				}
 
 				int rettype = subtrunk(cd, ret, depth + 1, 0, !tk);
-				if (rettype == 2) {
+				if (rettype == 2)
 					return rettype;
-				}
-				if (rettype == 3)
+				else if (rettype == 3)
 				{
 					finishtrunk(cd, 1);
 					return rettype;
 				}
-				break;
-			}
+			}break;
 			case ':':
 			{
 				cd.next();
@@ -998,11 +1070,11 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 					{ // iter
 						cd.iter.back()++;
 						std::string name = "i";
-						for (auto it : cd.iter)
-							name = "_" + name;
-						gvarmapstack.addvar(name.c_str(), var(cd.iter.back()));
+						name.insert(0, cd.iter.size(), '_');
+
+						gvarmapstack.addvar(name.c_str(), phg_var(cd.iter.back()));
 					}
-					var e = expr(cd);
+					phg_var e = expr(cd);
 					cd.next();
 
 					if (e != 0) {
@@ -1024,8 +1096,7 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 
 						cd.ptr = cp;
 						goto codepos1;
-					}
-					else {
+					} else {
 						finishtrunk(cd, 0);
 					}
 					cd.iter.pop_back();
@@ -1034,7 +1105,7 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 				{
 					cd.iter.push_back(0);
 					int loopcnt = int(expr(cd));
-					PRINT("@" << loopcnt);
+					PHG_DEBUG_PRINT("@" << loopcnt);
 					bool tk = false;
 					if (cd.cur() == '{')
 					{
@@ -1047,16 +1118,16 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 						{ // iter
 							cd.iter.back() = i;
 							std::string name = "i";
-							for (auto it : cd.iter)
-								name = "_" + name;
-							gvarmapstack.addvar(name.c_str(), var(cd.iter.back()));
+							name.insert(0, cd.iter.size(), '_');
+
+							gvarmapstack.addvar(name.c_str(), phg_var(cd.iter.back()));
 						}
 						cd.ptr = cp;
 						int rettype = subtrunk(cd, ret, depth + 1, 0, !tk);
 
-						if (rettype == 2) {
+						if (rettype == 2) 
 							return rettype;
-						}
+						
 						if (rettype == 3) {// break;
 							finishtrunk(cd, 1);
 							break;
@@ -1064,8 +1135,7 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 					}
 					cd.iter.pop_back();
 				}
-				break;
-			}
+			}break;
 			case '$': // return
 			{
 				if (!bfunc)
@@ -1101,17 +1171,16 @@ int subtrunk(code& cd, var& ret, int depth, bool bfunc, bool bsingleline = false
 
 				if (bsingleline)
 					return 0;
-			}
+			}break;
 		}
 	}
 	return 0;
 }
-
-// phg functions
-var callfunc_phg(code& cd) {
+// PHG functions
+phg_var callfunc_phg(code& cd) {
 	fnname fnm = cd.getname();
-	PRINT("callfunc: " << fnm << "(){");
-	//PRINT("{");
+	PHG_DEBUG_PRINT("callfunc: " << fnm << "(){");
+	PHG_DEBUG_PRINT("{");
 	PHG_ASSERT(cd.next3() == '(');
 
 	cd.next();
@@ -1134,7 +1203,7 @@ var callfunc_phg(code& cd) {
 	if (api_list.find(cd.getname()) != api_list.end() ||
 		cd.funcnamemap.find(fnm) == INVALIDFUN)
 	{
-		ERRORMSG("no function named: '" << fnm << "'");
+		SYNTAXERR("no function named: '" << fnm << "'");
 		return INVALIDVAR;
 	}
 	cd.ptr = cd.funcnamemap[fnm];
@@ -1146,19 +1215,23 @@ var callfunc_phg(code& cd) {
 	cd.next();
 
 	std::vector<std::string> pm_names;
-	std::vector<var> pm_vals;
+	std::vector<phg_var> pm_vals;
 	while (!cd.eoc()) {
 		char c = cd.cur();
 		if (c == ')') {
 			cd.next();
+			if (isname(cd.cur()))
+			{
+				SYNTAXERR("';' is missing?");
+			}
 			break;
 		}
 		else if (c == ',') {
 			cd.next();
 		}
 		else {
-			pm_names.push_back(cd.getname());
-			pm_vals.push_back(cd.valstack.back());
+			pm_names.emplace_back(cd.getname());
+			pm_vals.emplace_back(move(cd.valstack.back()));
 			cd.valstack.pop_back();
 			cd.next2();
 		}
@@ -1166,21 +1239,26 @@ var callfunc_phg(code& cd) {
 	for (unsigned int i = 0; i < pm_names.size(); i++)
 		gvarmapstack.addvar(pm_names[i].c_str(), pm_vals[pm_vals.size() - 1 - i]);
 
-	var ret(0);
+	phg_var ret(0);
 	PHG_ASSERT(subtrunk(cd, ret, 0, true) == 2);
 	gvarmapstack.pop();
 
 	cd.ptr = cd.codestack.pop();
-	//PRINT("}");
+	PHG_DEBUG_PRINT("}");
 	return ret;
 }
 
-// call API functions
-var callfunc(code& cd) {
+// ------------------------------------------------------------------------
+// API
+// ------------------------------------------------------------------------
+phg_var callfunc(code& cd) {
 	fnname fnm = cd.getname();
 	if (api_list.find(fnm) != api_list.end())
 	{
-		PHG_PRINT("API:" << fnm);
+		COSOCOR(FOREGROUND_GREEN);
+		PHG_PRINT("[API]: " << fnm);
+		COSOCOR(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+
 		api_fun_t& apifun = api_list[fnm];
 		int args = 0;
 
@@ -1192,11 +1270,19 @@ var callfunc(code& cd) {
 
 			if (c == ')') {
 				cd.next();
+				if (isname(cd.cur()))
+				{
+					SYNTAXERR("';' is missing?");
+				}
 				break;
 			}
 			else if (c == ',') {
 				cd.next();
 				continue;
+			}
+			else if (c == ';' || c == '\n') {
+				SYNTAXERR("')' is missing?");
+				break;
 			}
 			else {
 				if (c == '{' && get_funparam)
@@ -1208,7 +1294,7 @@ var callfunc(code& cd) {
 							break;
 						param += c;
 					}
-					var v;
+					phg_var v;
 					if (get_funparam(v, fnm.c_str(), param.c_str()))
 					{
 						cd.valstack.push(v);
@@ -1223,7 +1309,7 @@ var callfunc(code& cd) {
 				}
 			}
 		}
-		var ret = apifun(cd, args);
+		phg_var ret = apifun(cd, args);
 		for (int i = 0; i < args; i++)
 			cd.valstack.pop_back();
 		//PRINTV(cd.cur());
@@ -1232,18 +1318,17 @@ var callfunc(code& cd) {
 	else
 		return callfunc_phg(cd);
 }
-
-void func(code& cd) {
+void func1(code& cd) {
 	fnname fnm = cd.getname();
 	PHG_PRINT("$define func: " << fnm);
 	if (cd.funcnamemap.find(fnm) != cd.funcnamemap.end())
 	{
-		ERRORMSG("function named: '" << fnm << " already exists!");
+		SYNTAXERR("function named: '" << fnm << " already exists!");
 		return;
 	}
 	if (api_list.find(fnm) != api_list.end())
 	{
-		ERRORMSG("function named: '" << fnm << " already exists!");
+		SYNTAXERR("function named: '" << fnm << " already exists!");
 		return;
 	}
 
@@ -1255,10 +1340,18 @@ void func(code& cd) {
 // ------------------------------------------------------------------------
 // 默认解析器
 // ------------------------------------------------------------------------
-void parser_default(code& cd) {
-	PHG_PRINT("=========PHG========");
-	PHG_PRINT(cd.ptr);
-	PHG_PRINT("--------------------");
+void parser_default(code& cd)
+{
+	if (becho)
+	{
+		COSOCOR(FOREGROUND_GREEN);
+		PHG_PRINT("\n======= PHG =======");
+		COSOCOR(FOREGROUND_RED | FOREGROUND_GREEN);
+		PHG_PRINT(cd.ptr);
+		COSOCOR(FOREGROUND_GREEN);
+		PHG_PRINT("-------------------\n");
+		COSOCOR(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+	}
 #ifdef RANK_INIT
 	RANK_INIT
 #else
@@ -1284,31 +1377,35 @@ void parser_default(code& cd) {
 		short type = cd.gettype();
 		switch (type) {
 		case ';':
-			cd.nextline();
+			if ('\0' == cd.next())
+				goto EXIT;
 			break;
 		case '\'':
 		case '#':
-			cd.nextline();
+			if ('\0' == cd.nextline())
+				goto EXIT;
 			break;
 		case '$':
 			cd.next();
-			func(cd);
+			func1(cd);
 			break;
 		case '(':
-			if (process)
-				process(cd);
+			if (fun_process)
+				fun_process(cd);
 			break;
 		case '[':
-			table(cd);
+			fun_table(cd);
 			break;
 		case '{':
-			tree(cd);
+			fun_tree(cd);
 			break;
 		default:
-			var ret(0);
+			phg_var ret(0);
 			subtrunk(cd, ret, 0, 0);
+			break;
 		}
 	}
+EXIT: {}
 }
 
 // ------------------------------------------------------------------------
@@ -1323,7 +1420,6 @@ void init()
 	if (!statement)
 		FUN_PTR_SET(statement, statement_default);
 }
-
 void fixedstring(string& out, const char* str)
 {
 	out.clear();
@@ -1348,28 +1444,36 @@ void fixedstring(string& out, const char* str)
 		out += c;
 	}
 }
-
 bool checkcode(const char* str)
 {
 	string codestr;
 	fixedstring(codestr, str);
 	if (count(codestr.begin(), codestr.end(), '{') != count(codestr.begin(), codestr.end(), '}'))
 	{
-		ERRORMSG("number of \'{\' != \'}\'!");
+		SYNTAXERR0("number of \'{\' != \'}\'!");
+		return false;
+	}
+	if (count(codestr.begin(), codestr.end(), '<') != count(codestr.begin(), codestr.end(), '>'))
+	{
+		SYNTAXERR0("number of \'<\' != \'>\'!");
+		return false;
+	}
+	if (count(codestr.begin(), codestr.end(), '[') != count(codestr.begin(), codestr.end(), ']'))
+	{
+		SYNTAXERR0("number of \'[\' != \']\'!");
 		return false;
 	}
 	return true;
 }
-
 // do expression
-inline var doexpr(const char* str)
+inline phg_var doexpr(const char* str)
 {
 	code cd(str);
 
 	return expr(cd);
 }
 
-// do string
+// dostring
 void dostring(const char* str)
 {
 	init();
@@ -1385,39 +1489,43 @@ void dostring(const char* str)
 }
 
 // do file
-void dofile(const char* filename)
+bool dofile(const char* filename)
 {
-	PRINT("dofile:" << filename);
+	PHG_PRINT("dofile:" << filename);
 	init();
 
 	FILE* f;
-	if (!(f = fopen(filename, "r")))
+	if (!(f = fopen(filename, "rb")))
 	{
 		ERRORMSG("dofile:" << filename << " file not found!");
-		return;
+		return false;
 	}
 	fseek(f, 0, SEEK_END);
 	long sz = ftell(f);
 	if (sz == 0)
 	{
 		fclose(f);
-		return;
+		return false;
 	}
+
 	char* buf = new char[sz + 1];
-	fread(buf, 1, sz, f);
+	fseek(f, 0, SEEK_SET); // 返回文件开头
+	fread(buf, sz, 1, f);
 	buf[sz] = '\0';
 	fclose(f);
 
 	dostring(buf);
 
 	delete[]buf;
-	PRINT("\n");
+	PHG_PRINT("\n");
+
+	return true;
 }
 
 // API
 inline void register_api(crstr name, api_fun_t fun)
 {
-	PRINT("regAPI: " << name);
+	// PHG_PRINT("regAPI: " << name);
 	api_list[name] = fun;
 }
 
