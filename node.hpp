@@ -1,97 +1,100 @@
 /**************************************************************************
-*				节点树的解析
-*			节点树就是把个体组成家族
-*			包括阵列，序列, 选择子等重要概念
-*			任何对象都可以定义为节点
+*                      [Node Tree Parsing]
+*              A node tree organizes individuals into a hierarchy
+*          Includes important concepts like arrays, sequences, and selectors
+*                  Any object can be defined as a node
+* 
 **************************************************************************/
-#define NODE		GROUP::tree_t
-#define ROOT		GROUP::gtree
-#define ME			GROUP::work_stack.empty() ? 0 : GROUP::work_stack.back()
-#define GET_NODE(name, node)	name == "me" ? ME : get_node(name, node, true)
+#define	PHG_MAP			std::map
+#define PHG_NODE		GROUP::phg_tree
+#define PHG_ROOT		GROUP::root
+#define ME				(GROUP::work_stack.empty() ? 0 : GROUP::work_stack.back())
+#define GET_PHG_NODE(name, node)	name == "me" ? ME : get_node(name, node, true)
+#define	MAX_ID		10000						// 最大ID
 
-int node_count = 0;								// 节点数量
+struct phg_tree;
 
-typedef struct tree_t
+int node_count = 0;							// 节点数量
+phg_tree* root = 0;							// 暂时使用全局树
+vector<phg_tree*>	work_stack;					// 工作栈
+std::string			cur_property = "pr1";			// 当前属性
+
+// -----------------------------------------------------------------------
+#ifndef _PHG_STRUCT
+extern void _crt_array(code& cd, phg_tree* tree, const string& pre, int depth, const string& selector);
+extern void _crt_sequ(code& cd, phg_tree* tree, const string& pre);
+extern phg_tree* get_node(const string& name, phg_tree* tree, bool recu);
+extern phg_tree* get_node_upwards(const string& name, phg_tree* tree, bool recu = true);
+
+#endif
+
+// -----------------------------------------------------------------------
+struct phg_tree
 {
-	tree_t* parent = 0;
+	phg_tree* parent = 0;
 	string name;								// 名字
 	int index = 0;								// 索引
-	bool b_kv_ordered = false;					// kv表有序
+	int user_id = 0;							// 用户设置的ID
+	bool b_kv_ordered = false;						// kv表有序
 
-	std::map<std::string, std::string> kv;		// 属性字典
-	std::vector<std::string> kvorder;			// 属性字典的顺序
+	PHG_MAP<std::string, std::string> kv;					// 属性字典
+	std::vector<std::string> kvorder;					// 属性字典的顺序
 
-	std::map<std::string, tree_t*> children;	// 子字典
-	std::vector<tree_t*>	childlist;			// 子列表，用于json/xml等格式转化
+	PHG_MAP<std::string, phg_tree*> children;				// 子字典
+	std::vector<phg_tree*>	childlist;					// 子列表(注意冗余!)，保留代码中的节点顺序
 
-	static inline int getdepth(tree_t* tree, int depth = 0)
+	static inline int getdepth(phg_tree* tree, int depth = 0)
 	{
-		//PRINT("getdepth: " << tree->name);
 		if (tree->parent)
 			return getdepth(tree->parent, depth + 1);
 		else
 			return depth;
 	}
-	static inline string genid0()
-	{
-		node_count++;
-		if (node_count >= 10000) // 注意：id < 10000
-			return to_string(node_count);
-
-		// 简单字典顺序
-		return	to_string(node_count/1000%10) +
-				to_string(node_count/100%10) +
-				to_string(node_count/10%10) +
-				to_string(node_count%10);
-	}
 	static inline string genid()
 	{
 		node_count++;
-		if (node_count >= 10000) // 注意：id < 10000
+
+		if (node_count >= MAX_ID) // 注意：id < MAX_ID
 			return to_string(node_count);
 
-		string str = to_string(node_count);
-		int len = str.length();
-		for (int i = 0; i < 4 - len; i++) {
-			str = "0" + str;
-		}
+		// 计算 MAX_ID 的位数
+		const int num_digits = int(std::log10(MAX_ID));
+		std::string str = std::to_string(node_count);
+		str.insert(str.begin(), num_digits - str.length(), '0');
+
 		return str;
 	}
 	inline int getindex()
 	{
 		return index;
-		/*int id, index;
-		PRINTV(name);
-		ASSERT(2 == sscanf(name.c_str(), "%d_%d", &id, &index));
-		return id;*/
 	}
-	void operator += (const tree_t& t)
+	void operator += (const phg_tree& t)
 	{
-		// 暂时拷贝，以后可以做运算
-
 		for (auto it : t.kv)
 		{
 			kv[it.first] = it.second;
 		}
 		for (auto& it : t.children)
 		{
-			tree_t* ntree = new tree_t();
+			phg_tree* ntree = new phg_tree();
 			ntree->index = children.size() + 1;
-			ntree->name = string("n") + tree_t::genid();// +"_" + to_string(ntree->index);
+			ntree->name = "n" + phg_tree::genid(); // +"_" + to_string(ntree->index);
+
 			children[ntree->name] = ntree;
+			childlist.push_back(ntree);	// 记录在列表里
 			ntree->parent = this;
 
 			*ntree += *it.second;
 		}
 	}
-	void copyprop(tree_t* t)
+	void copyprop(phg_tree* t)
 	{
-		for (auto& it : kv)
+		for (const auto& it : kv)
 		{
 			t->kv[it.first] = it.second;
 		}
 	}
-	static void clear(tree_t* ot)
+	static void clear(phg_tree* ot)
 	{
 		if (!ot) return;
 
@@ -103,35 +106,39 @@ typedef struct tree_t
 	}
 };
 
-// -----------------------------------------------------------------------
-tree_t* gtree = 0;				// 暂时使用全局树
-vector<tree_t*>	work_stack;			// 工作栈
-std::string		cur_property = "pr1";	// 当前属性
-extern void _crt_array(code& cd, tree_t* tree, const string& pre, int depth, const string& selector);
-extern void _crt_sequ(code& cd, tree_t* tree, const string& pre);
-extern tree_t* get_node(const string& name, tree_t* tree, bool recu);
-
-// -----------------------------------------------------------------------
-static void _tree(code& cd, tree_t* tree, const string& pre, int depth = 0)
+// ------------------------------------
+static void _tree(code& cd, phg_tree* tree, const string& pre, int depth = 0)
 {
 	work_stack.push_back(tree);
-	//PRINT(pre << "{");
+	PHG_DEBUG_PRINT(pre << "{");
 	cd.next();
 
 	std::string key, val;
 	std::string* pstr = &key;
 	string selector;
+
 	while (!cd.eoc()) {
 		char c = cd.cur();
-		//PRINT("c=" << c );
-
 		// 注解
 		if (c == '#') {
 			cd.nextline();
-			//cd.next();
-			continue;
-		}
 
+			c = cd.cur();
+			if (!checkspace(c))
+			{
+				continue;
+			}
+			cd.next_();
+		}
+		else if (c == '/') {
+			if (*(cd.ptr + 1) == '*')
+			{
+				while ((*cd.ptr) != '\0' &&
+					((*(cd.ptr)) != '*' || (*(cd.ptr + 1)) != '/'))
+					cd.ptr++;
+				continue;
+			}
+		}
 		// PHG表达式
 		else if (c == '(' && pstr != &val)
 		{
@@ -182,15 +189,16 @@ static void _tree(code& cd, tree_t* tree, const string& pre, int depth = 0)
 				}
 				if (key.empty())
 				{
-					key = string("n") + tree_t::genid();// +"_" + to_string(tree->children.size() + 1);
+					key = ("n") + phg_tree::genid();// +"_" + to_string(tree->children.size() + 1);
 				}
-				tree_t* ntree = new tree_t;
+				phg_tree* ntree = new phg_tree;
 				ntree->index = tree->children.size() + 1;
 				ntree->name = key;
 				tree->children[key] = ntree;
+				tree->childlist.push_back(ntree);// 记录在列表里
 				ntree->parent = tree;
 
-				//PRINT(pre << key << " : ");
+				PHG_DEBUG_PRINT(pre << key << " : ");
 				_tree(cd, ntree, pre + "\t", depth + 1);
 			}
 			else if (c == '[') // 阵列
@@ -211,7 +219,7 @@ static void _tree(code& cd, tree_t* tree, const string& pre, int depth = 0)
 			if (!key.empty() || !val.empty()) {
 				if (val.empty())
 				{// inhert
-					tree_t* t = GET_NODE(key, ROOT);
+					phg_tree* t = get_node_upwards(key, tree); //GET_PHG_NODE(key, tree); // local first
 					if (t) {
 						(*tree) += (*t);
 					}
@@ -225,23 +233,22 @@ static void _tree(code& cd, tree_t* tree, const string& pre, int depth = 0)
 					tree->kv[key] = val;
 					if (tree->b_kv_ordered)
 						tree->kvorder.push_back(key);
-					//PRINT(pre << key << " : " << val);
+					PHG_DEBUG_PRINT(pre << key << " : " << val);
 				}
 				val = "";
 				key = "";
 				pstr = &key;
 			}
 			cd.next();
-			if (c == '}' || c == '>') {
+			if (c == '}' || c == '>') 
 				return;
-			}
 		}
 
 		// 逗号间隔,不能作为property的结尾！
 		else if (c == ',' && pstr != &val) {
 			if (!key.empty())
 			{// inhert
-				tree_t* t = GET_NODE(key, ROOT);
+				phg_tree* t = get_node_upwards(key, tree); //GET_PHG_NODE(key, tree); // local first
 				if (t)
 				{
 					(*tree) += (*t);
@@ -267,7 +274,7 @@ static void _tree(code& cd, tree_t* tree, const string& pre, int depth = 0)
 				return;
 			}
 			pstr = &val;
-			cd.next4();
+			cd.next_();
 
 			c = cd.cur();
 			if (c != '\'' && c != '\"')
@@ -292,29 +299,66 @@ static void _tree(code& cd, tree_t* tree, const string& pre, int depth = 0)
 		// default
 		else {
 			*pstr += cd.cur();
-			cd.next4();
+			cd.next_();
 		}
 	}
 }
-
-tree_t* get_node(const string& name, tree_t* tree = gtree, bool recu = true)
+phg_tree* get_node(const string& name, phg_tree* tree = PHG_ROOT, bool recu = true)
 {
+	ASSERT(!name.empty());
+	ASSERT(tree);
 	if (name == tree->name)
 		return tree;
 	{
 		auto it = tree->children.find(name);
 		if (it != tree->children.end())
-		{
 			return it->second;
-		}
 	}
 	if (recu)
 	{
 		for (auto it : tree->children) {
-			tree_t* ret = get_node(name, it.second, recu);
+			phg_tree* ret = get_node(name, it.second, recu);
 			if (ret)
 				return ret;
 		}
+	}
+	return 0;
+}
+phg_tree* get_node_upwards(const string& name, phg_tree* tree, bool recu)
+{
+	ASSERT(!name.empty());
+	ASSERT(tree);
+
+	if (name == tree->name)
+		return tree;
+
+	auto parent = tree->parent;
+	if (parent) {
+		for (auto& sibling : parent->children) {
+			if (sibling.second != tree) {
+				if (sibling.second->name == name)
+					return sibling.second;
+				{
+					auto* node = get_node(name, sibling.second);
+					if (node)
+						return node;
+				}
+			}
+		}
+		if (recu) {
+			phg_tree* ret = get_node_upwards(name, parent, recu);
+			if (ret)
+				return ret;
+		}
+	}
+	return 0;
+}
+phg_tree* get_node_in_childlist(const string& name, phg_tree* parent)
+{
+	if (parent) {
+		for (auto& node : parent->childlist)
+			if (node->name == name)
+				return node;
 	}
 	return 0;
 }
@@ -337,23 +381,35 @@ int select(int ind, int rnd, crstr selector)
 	return 0;
 }
 
+// ------------------------------------
 // 阵列
-void _crt_array(code& cd, tree_t* tree, const string& pre, int depth, const string& selector)
+// ------------------------------------
+void _crt_array(code& cd, phg_tree* tree, const string& pre, int depth, const string& selector)
 {
+	PHG_DEBUG_PRINT("crt_array")
+
 	cd.next();
 	int index = 0;
 	int rnd = rand();
-	//vector<string> nodes;
 	string node;
 	while (!cd.eoc()) 
 	{
 		char c = cd.cur();
-		//PRINT(c);
-		tree_t* ntree = 0;
+		//PHG_DEBUG_PRINT(c);
+		phg_tree* ntree = 0;
 		if (c == '#') {
 			cd.nextline();
 			cd.next();
 			continue;
+		}
+		else if (c == '/') {
+			if (*(cd.ptr + 1) == '*')
+			{
+				while ((*cd.ptr) != '\0' &&
+					((*(cd.ptr)) != '*' || (*(cd.ptr + 1)) != '/'))
+					cd.ptr++;
+				continue;
+			}
 		}
 		else if (c == '<' || c == '>') {
 			SYNTAXERR("'<' or '>' is not allowed in '[]', use '{}'!");
@@ -372,20 +428,20 @@ void _crt_array(code& cd, tree_t* tree, const string& pre, int depth, const stri
 		{
 			index++;
 			work_stack.push_back(tree);
-			ntree = new tree_t;
+			ntree = new phg_tree;
 			ntree->index = tree->children.size() + 1;
 			if (node.empty())
 			{
-				node = string("n") + tree_t::genid();// + "_" + to_string(ntree->index);
+				node = ("n") + phg_tree::genid();// + "_" + to_string(ntree->index);
 			}
 			ntree->name = node;
 
 			tree->children[ntree->name] = ntree;
+			tree->childlist.push_back(ntree);// 记录在列表里
+
 			ntree->parent = tree;
 
-			//PRINT("_crt_array >>");
 			_tree(cd, ntree, pre, depth + 1);
-			// PRINT("_crt_array << " << cd.cur())
 			int ret = select(index, rnd, selector);
 			if (ret) {
 				if (ret == 1)
@@ -397,8 +453,9 @@ void _crt_array(code& cd, tree_t* tree, const string& pre, int depth, const stri
 			else
 			{
 				tree->children[ntree->name] = 0;
+				tree->childlist.pop_back();
 				ntree->parent = 0;
-				tree_t::clear(ntree);
+				phg_tree::clear(ntree);
 			}
 			node = "";
 		}
@@ -412,36 +469,32 @@ void _crt_array(code& cd, tree_t* tree, const string& pre, int depth, const stri
 			if (!ntree)
 				index++;
 
-			//nodes.push_back(node);
 			if (!ntree)
 			{// create node
 				work_stack.push_back(tree);
-				ntree = new tree_t;
+				ntree = new phg_tree;
 				ntree->index = tree->children.size() + 1;
-				ntree->name = string("n") + tree_t::genid();// + "_" + to_string(ntree->index);
+				ntree->name = ("n") + phg_tree::genid();// + "_" + to_string(ntree->index);
 				{// inhert
-					tree_t* t = GET_NODE(node, ROOT);
+					phg_tree* t = get_node_upwards(node, tree); // GET_PHG_NODE(node, PHG_ROOT);
 					if (t) {
 						(*ntree) += (*t);
 					}
 				}
-
-				//PRINTV(ntree->name)
 				int ret = select(index, rnd, selector);
 				if (ret) {
-
 					tree->children[ntree->name] = ntree;
+					tree->childlist.push_back(ntree);// 记录在列表里
 					ntree->parent = tree;
 					if (ret == 1)
 					{
 						cd.next();
-						//PRINTV(ret);
 						break;
 					}
 				}
 				else
 				{
-					tree_t::clear(ntree);
+					phg_tree::clear(ntree);
 				}
 				ntree = 0; // clear
 			}
@@ -457,22 +510,33 @@ void _crt_array(code& cd, tree_t* tree, const string& pre, int depth, const stri
 	}
 }
 
+// ------------------------------------
 // 序列
-void _crt_sequ(code& cd, tree_t* tree, const string& pre)
+// ------------------------------------
+void _crt_sequ(code& cd, phg_tree* tree, const string& pre)
 {
+	PHG_DEBUG_PRINT("crt_sequ")
+
 	cd.next();
 
-	//vector<string> nodes;
 	string node;
 	while (!cd.eoc())
 	{
 		char c = cd.cur();
-		//PRINT(c)
-		tree_t* ntree = 0;
+		phg_tree* ntree = 0;
 		if (c == '#') {
 			cd.nextline();
 			cd.next();
 			continue;
+		}
+		else if (c == '/') {
+			if (*(cd.ptr + 1) == '*')
+			{
+				while ((*cd.ptr) != '\0' &&
+					((*(cd.ptr)) != '*' || (*(cd.ptr + 1)) != '/'))
+					cd.ptr++;
+				continue;
+			}
 		}
 		else if (c == '[' || c == ']') {
 			SYNTAXERR("'[' or ']' is not allowed in '<>', use '{}'!");
@@ -490,46 +554,45 @@ void _crt_sequ(code& cd, tree_t* tree, const string& pre)
 		else if (c == '{')
 		{
 			work_stack.push_back(tree);
-			ntree = new tree_t;
+			ntree = new phg_tree;
 			ntree->index = tree->children.size() + 1;
 			if (node.empty())
 			{
-				node = string("n") + tree_t::genid();// +"_" + to_string(ntree->index);
+				node = ("n") + phg_tree::genid();// +"_" + to_string(ntree->index);
 			}
 			ntree->name = node;
 			tree->children[ntree->name] = ntree;
+			tree->childlist.push_back(ntree);// 记录在列表里
 			ntree->parent = tree;
 
-			//PRINT(pre << ntree->name << " : ");
+			PHG_DEBUG_PRINT(pre << ntree->name << " : ");
 
-			_tree(cd, ntree, pre, tree_t::getdepth(tree) + 1);
-			tree = ntree; // parent->child
-			//PRINTV(cd.cur())
+			_tree(cd, ntree, pre, phg_tree::getdepth(tree) + 1);
+			tree = ntree;
+			PHG_DEBUG_PRINT("cur: " << cd.cur())
 			node = "";
 		}
-		else if (c == ',' || c == '>')
-		{
-		}
+		else if (c == ',' || c == '>'){}
 		else
 			node += c;
 
 		c = cd.cur();
 		if (c == ',' || c == '>')
 		{
-			//nodes.push_back(node);
-			if (!ntree)
+			if (!ntree && !node.empty())
 			{// create node
 				work_stack.push_back(tree);
-				ntree = new tree_t;
+				ntree = new phg_tree;
 				ntree->index = tree->children.size() + 1;
-				ntree->name = string("n") + tree_t::genid();// +"_" + to_string(tree->children.size() + 1);
+				ntree->name = ("n") + phg_tree::genid();// +"_" + to_string(tree->children.size() + 1);
 				{// inhert
-					tree_t* t = GET_NODE(node, ROOT);
+					phg_tree* t = get_node_upwards(node, tree); //GET_PHG_NODE(node, PHG_ROOT);
 					if (t) {
 						(*ntree) += (*t);
 					}
 				}
 				tree->children[ntree->name] = ntree;
+				tree->childlist.push_back(ntree);// 记录在列表里
 				ntree->parent = tree;
 				tree = ntree; // parent->child
 
@@ -546,24 +609,27 @@ void _crt_sequ(code& cd, tree_t* tree, const string& pre)
 		cd.next();
 	}
 }
+
+// ------------------------------------
 // 树节点解析
+// ------------------------------------
 void _tree(code& cd)
 {
-	//tree_t* tree = new tree_t;
-	tree_t::clear(gtree);
+	phg_tree::clear(root);
+
 	node_count = 0;
-	gtree = new tree_t;
-	gtree->name = "root";
-	_tree(cd, gtree, "", 0);
+	root = new phg_tree;
+	root->name = "root";
+	_tree(cd, root, "", 0);
 	
-	//tree_t::clear(tree);
+	//phg_tree::clear(tree);
 }
 
 // ------------------------------------
 // 寻源式加法
 // 两个节点之和为最近的相同祖先
 // ------------------------------------
-bool porperty_intree(tree_t* tree, const char* key, crstr val)
+bool porperty_intree(phg_tree* tree, const char* key, crstr val)
 {
 	auto it = tree->kv.find(key);
 	if (it != tree->kv.end())
@@ -576,8 +642,11 @@ bool porperty_intree(tree_t* tree, const char* key, crstr val)
 	}
 	return false;
 }
+
+// ------------------------------------
 // 在节点树上搜索加法规则
-const char* walk_addtree(tree_t* tree, crstr v_a, crstr v_b, const char* key)
+// ------------------------------------
+const char* walk_addtree(phg_tree* tree, crstr v_a, crstr v_b, const char* key)
 {
 	if (tree->children.size() >= 2)
 	{
@@ -608,22 +677,24 @@ const char* walk_addtree(tree_t* tree, crstr v_a, crstr v_b, const char* key)
 	}
 	return 0;
 }
+
 // ------------------------------------
 // node walker
 // ------------------------------------
-void node_walker(tree_t* tree, std::function<void(tree_t*)> fun)
+void phg_node_walk(phg_tree* tree, std::function<void(phg_tree*)> fun)
 {
 	fun(tree);
 
 	// children
 	for (auto& it : tree->children) {
-		node_walker(it.second, fun);
+		phg_node_walk(it.second, fun);
 	}
 }
+
 // ====================================
 // API
 // ====================================
-tree_t* _getbyprop(tree_t* tree, crstr key, crstr val)
+phg_tree* _getbyprop(phg_tree* tree, crstr key, crstr val)
 {
 	if (tree->kv[key] == val){
 		return tree;
@@ -631,7 +702,7 @@ tree_t* _getbyprop(tree_t* tree, crstr key, crstr val)
 
 	// children
 	for (auto it : tree->children) {
-		tree_t* t = _getbyprop(it.second, key, val);
+		phg_tree* t = _getbyprop(it.second, key, val);
 		if (t)
 			return t;
 	}
@@ -639,16 +710,17 @@ tree_t* _getbyprop(tree_t* tree, crstr key, crstr val)
 }
 _API(kv_order)
 {
+	UNUSED(args); UNUSED(cd);
 	if (ME)
 		ME->b_kv_ordered = true;
 	return 0;
 }
 _API(api_im)
 {
-	ASSERT_RET(ROOT);
+	ASSERT_RET(PHG_ROOT);
 	ASSERT(args == 1);
 
-	NODE* me = 0;
+	PHG_NODE* me = 0;
 	crstr expr = GET_SPARAM(1);
 	if (expr[0] == '.')
 	{
@@ -660,7 +732,7 @@ _API(api_im)
 		ccd.next();
 		string val = getstring(ccd);
 		PRINTV(val);
-		me = _getbyprop(ROOT, key, val.c_str());
+		me = _getbyprop(PHG_ROOT, key, val.c_str());
 		if (me)
 			PRINTV(me->name);
 	}
@@ -678,7 +750,7 @@ _API(api_im)
 		}
 		else
 		{
-			me = get_node(node, ROOT);
+			me = get_node(node, PHG_ROOT);
 		}
 		if (me)
 			PRINTV(me->name);
@@ -689,12 +761,13 @@ _API(api_im)
 }
 _API(api_bye)
 {
+	UNUSED(args); UNUSED(cd);
 	work_stack.clear();
 	return 0;
 }
 _API(api_on)
 {
-	ASSERT_RET(ROOT);
+	ASSERT_RET(PHG_ROOT);
 	ASSERT(args == 1);
 
 	SPARAM(on);
@@ -705,12 +778,12 @@ _API(api_on)
 _API(array)
 {
 	ASSERT(ME);
-	tree_t* ntree = new tree_t;
+	phg_tree* ntree = new phg_tree;
 
 	if (args == 1)
 	{
 		SPARAM(clonenode);
-		tree_t* t = get_node(clonenode);
+		phg_tree* t = get_node(clonenode);
 		if (t)
 		{
 			(*ntree) += (*t);
@@ -718,33 +791,36 @@ _API(array)
 	}
 	if (ME->parent && (!cd.iter.empty() && cd.iter.back() > 1))
 	{
-		ntree->name = string("n") + tree_t::genid();// +"_" + to_string(ME->parent->children.size() + 1);
+		ntree->name = ("n") + phg_tree::genid();// +"_" + to_string(ME->parent->children.size() + 1);
 		ntree->index = ME->parent->children.size() + 1;
 		ME->parent->children[ntree->name] = ntree;
+		ME->parent->childlist.push_back(ntree);// 记录在列表里
 		ntree->parent = ME->parent;
 	}
 	else
 	{
-		ntree->name = string("n") + tree_t::genid();// + "_" + to_string(ME->children.size() + 1);
+		ntree->name = ("n") + phg_tree::genid();// + "_" + to_string(ME->children.size() + 1);
 		ntree->index = ME->children.size() + 1;
 		ME->children[ntree->name] = ntree;
+		ME->childlist.push_back(ntree);// 记录在列表里
 		ntree->parent = ME;
 	}
-	ME = ntree;
+
+	GROUP::work_stack.empty() ? 0 : GROUP::work_stack.back() = ntree;
 
 	return 0;
 }
 _API(sequ)
 {
 	ASSERT(ME);
-	tree_t* ntree = new tree_t;
+	phg_tree* ntree = new phg_tree;
 	ntree->index = ME->children.size() + 1;
-	ntree->name = string("n") + tree_t::genid();// + "_" + to_string(ME->children.size() + 1);
+	ntree->name = ("n") + phg_tree::genid();// + "_" + to_string(ME->children.size() + 1);
 
 	if (args == 1)
 	{
 		SPARAM(clonenode);
-		tree_t* t = get_node(clonenode, ROOT);
+		phg_tree* t = get_node(clonenode, PHG_ROOT);
 		if (t)
 		{
 			PRINTV(clonenode);
@@ -753,13 +829,14 @@ _API(sequ)
 	}
 	{
 		ME->children[ntree->name] = ntree;
+		ME->childlist.push_back(ntree);// 记录在列表里
 		ntree->parent = ME;
 	}
 	work_stack.push_back(ntree);
 
 	return 0;
 }
-void property(tree_t* tree, const string& key, const string& val, const string& filter = "")
+void property(phg_tree* tree, const string& key, const string& val, const string& filter = "")
 {
 	const char* p = 0;
 	if (!filter.empty())
@@ -781,12 +858,12 @@ _API(property)
 	string filter = "";
 	if (args >= 3)
 		filter = GET_SPARAM(3);
-	property(ROOT, key, val, filter);
+	property(PHG_ROOT, key, val, filter);
 
 	POP_SPARAM;
 	return 0;
 }
-void dump(tree_t* tree, const string& pre = "")
+void dump(phg_tree* tree, const string& pre = "")
 {
 	PRINT(pre << tree->name << "{")
 	{
@@ -795,7 +872,6 @@ void dump(tree_t* tree, const string& pre = "")
 			PRINT(pre << "\t" << it.first << ":" << it.second);
 		}
 	}
-
 	// children
 	for (auto& it : tree->children) {
 		dump(it.second, pre + "\t");
@@ -805,20 +881,20 @@ void dump(tree_t* tree, const string& pre = "")
 _API(dump_node)
 {
 	PRINT("-------- DUMP --------");
-	NODE* n = ROOT;
+	PHG_NODE* n = PHG_ROOT;
 	if (args >= 1)
 	{
 		SPARAM(a);
-		n = a == "me" ? (ME) : GET_NODE(a, ROOT);
+		n = a == "me" ? (ME) : GET_PHG_NODE(a, PHG_ROOT);
 	}
-		
+	ASSERT(n);
 	dump(n);
 	return 0;
 }
 _API(do_expr)
 {
 	ASSERT_RET(args == 0);
-	GROUP::node_walker(ROOT, [](GROUP::tree_t* tree)->void
+	GROUP::phg_node_walk(PHG_ROOT, [](GROUP::phg_tree* tree)->void
 		{
 			for (auto& it : tree->kv) {
 				const char* ps = it.second.c_str();
@@ -826,7 +902,6 @@ _API(do_expr)
 					
 				if (*ps == '(') {
 					string result;
-					const char* start = ps;
 					while (*ps != '\0') {
 						string phg_expr = "";
 						if ((*ps) == '(') {
@@ -847,11 +922,11 @@ _API(do_expr)
 							{
 								// 内部变量
 								gvarmapstack.addvar("_i", tree->index);
-								gvarmapstack.addvar("_t", tree_t::getdepth(tree));
+								gvarmapstack.addvar("_t", phg_tree::getdepth(tree));
 							}
 							//PRINTV(phg_expr);
 							string str = phg_expr + ";";
-							var v = GROUP::doexpr(str.c_str());
+							phg_var v = GROUP::doexpr(str.c_str());
 
 							result += v.tostr();
 						}
@@ -874,32 +949,36 @@ _API(walknode)
 {
 	ASSERT_RET(args >= 1);
 	string script = GET_SPARAM(1);
-	NODE* node = ROOT;
+	PHG_NODE* node = PHG_ROOT;
 	if (args > 1)
 	{
 		string param1 = GET_SPARAM(2);
-		node = GET_NODE(param1, ROOT);
+		node = GET_PHG_NODE(param1, PHG_ROOT);
 		if (!node)
 			return 0;
 	}
-	node_walker(node, [script](tree_t* tree)->void
+	phg_node_walk(node, [script](phg_tree* tree)->void
 		{
 			work_stack.push_back(tree);
 			gvarmapstack.addvar("_name", tree->name.c_str());
 			gvarmapstack.addvar("_i", tree->index);
-			gvarmapstack.addvar("_t", tree_t::getdepth(tree));
+			gvarmapstack.addvar("_t", phg_tree::getdepth(tree));
 			dostring((script.back() != '}' ? script + ";" : script).c_str());
 		});
 	POP_SPARAM;
 
 	return 0;
 }
-namespace node 
+
+// ------------------------------------
+// PHG Node Resource
+// ------------------------------------
+namespace phg_node 
 {
 	struct res_t
 	{
 		// 携带的属性
-		NODE* node;
+		PHG_NODE* node;
 		string key;
 
 		res_t() {}
@@ -908,61 +987,54 @@ namespace node
 			node = v.node;
 			key = v.key;
 		};
-		~res_t() {}
 	};
 	vector<res_t*> reslist;		// 资源列表
-
-	res_t& cres(const var& ent)
+	res_t& cres(const phg_var& ent)
 	{
 		ASSERT(ent.resid >= 0 && ent.resid < reslist.size());
 		return *reslist[ent.resid];
 	}
-	res_t& res(var& ent)
+	res_t& res(phg_var& ent)
 	{
 		if (ent.resid == -1)
 		{
 			res_t* rs = new res_t();
 			reslist.push_back(rs);
 			ent.resid = reslist.size() - 1;
-
 			ent.type = 0; // 自定义元素类型
+
 			// 在资源上定义加法运算
-			ent.fun_set = [&ent](const var& v) {
+			ent.fun_set = [&ent](const phg_var& v) {
 				if (v.type == 0)
 				{
 					res(ent).node->kv[res(ent).key] = cres(v).node->kv[cres(v).key];
 				}
-				else {
-					//ent.node->kv[ent.key] = v.tostr();
-				}
 			};
-
 		}
-		//PRINTV(ent.resid);
 		ASSERT(ent.resid < reslist.size());
 		return *reslist[ent.resid];
 	}
 }
+
 // ===================================
 // REG APIs
 // ===================================
 void NODE_REG_API()
 {
-	CALC([](code& cd, char o, int args)->var {
+	CALC([](code& cd, char o, int args)->phg_var {
 		if (o == '.')
 		{
-			ASSERT_RET(ROOT);
+			ASSERT_RET(PHG_ROOT);
 			crstr a = GET_SPARAM(1);
-			//string b = GET_SPARAM(2);
 			crstr b = PHG_PARAM(2).tostr();
 
 			//PRINT("PROP GET: " << a << "." << b);
-			NODE* n = a == "me" ? (ME) : GET_NODE(a, ROOT);
+			PHG_NODE* n = a == "me" ? (ME) : GET_PHG_NODE(a, PHG_ROOT);
 			ASSERT_RET(n);
 
 			string c = n->kv[b];
 			//PRINT(a << "." << b << "=" << c);
-			var v; v.type = 0; v.sval = c; node::res(v).node = n; node::res(v).key = b;
+			phg_var v; v.type = 0; v.sval = c; phg_node::res(v).node = n; phg_node::res(v).key = b;
 			
 			POP_SPARAM;
 			cd.strstack.push_back(c);
@@ -971,11 +1043,12 @@ void NODE_REG_API()
 		}
 		return 0;
 		});
-	PROP([](code& cd, const char* a, const char* b, var& v) {
-		if (!ROOT) return;
+	PROP([](code& cd, const char* a, const char* b, phg_var& v) {
+		UNUSED(v);
+		if (!PHG_ROOT) return;
 		int args = 1;
 
-		NODE* n = strcmp(a, "me") == 0 ? (ME) : GET_NODE(a, ROOT);
+		PHG_NODE* n = (strcmp(a, "me") == 0) ? (ME) : GET_PHG_NODE(a, PHG_ROOT);
 		ASSERT(n);
 		//PRINTV(cd.strstack.size());
 		string sv = GET_SPARAM(1);
@@ -991,7 +1064,12 @@ void NODE_REG_API()
 
 	_REG_API(order, kv_order);		// kv_order
 	_REG_API(im, api_im);			// ME
+	_REG_API(bye, api_bye);			// ME = NULL(正在放弃中...)
 	_REG_API(on, api_on);			// 当前属性
+	_REG_API(array, array);			// 节点阵列 (正在放弃中...)
+	_REG_API(sequ, sequ);			// 节点序列 (正在放弃中...)
+
+	_REG_API(prop, property);		// 添加属性(正在放弃中...)
 	_REG_API(wak, walknode);		// 遍历节点树
 	_REG_API(expr, do_expr);		// 执行表达式
 	_REG_API(dump, dump_node);		// dump
