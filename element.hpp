@@ -1,33 +1,42 @@
-/**************************************************************************
-*				运算元素
-*			本页代码定义一种代理式元素
-*		通过类型控制以及资源ID来索引实际元素，从而达到优化效率的目的
-**************************************************************************/
+/********************************************************************************************
+*                          [Operational Elements]
+*          This code defines a proxy-based element mechanism
+*  Optimizes efficiency by using type control and resource IDs to reference actual elements
+********************************************************************************************/
 #ifdef ELEMENT
 #undef ELEMENT
 #endif
-#define ELEMENT			GROUP::var_t
+#define ELEMENT		GROUP::var_t
 #define OBJ			ELEMENT
 #define ENT			ELEMENT
 
 #ifdef STRING2VAR
 #undef STRING2VAR
 #endif
-#define STRING2VAR(str)		GROUP::var_t(str)
+#define STRING2VAR(str)	GROUP::var_t(str)
+
 // ------------------------------------------
 // 元素定义
 // ------------------------------------------
-typedef struct var_t
+struct var_t;
+using fun_set_t = std::function<void(const var_t& v)>;
+
+struct var_t
 {
-	using fun_set_t = std::function<void(const var_t& v)>;
+	enum { TYPE_DEFAULT = 1, TYPE_INT = 1,TYPE_REAL = 2, TYPE_S = 3, TYPE_ANY = 8, TYPE_UNKOWN = 0};
+
+	// 1 -int, 2 -real, 3 -string, 0 -unkown, other -custom
+	short type = TYPE_DEFAULT; 
+
 	string sval;
+
 	union {
 		int ival = 0;
 		real fval;
 	};
-	short resid = -1;
-	enum { TYPE_DEFAULT = 1, TYPE_INT = 1,TYPE_REAL = 2, TYPE_S = 3, TYPE_UNKOWN = 0};
-	short type = TYPE_DEFAULT; // 1 -int, 2 -real, 3 -string, 0 -unkown, other -custom
+
+	int resid = -1;
+
 	fun_set_t fun_set = 0;
 
 	var_t() { }
@@ -44,6 +53,10 @@ typedef struct var_t
 		type = 3; sval = _val;
 		//PRINTV(sval);
 	}
+	var_t(const std::string& _val) {
+		type = 3; sval = _val;
+		//PRINTV(sval);
+	}
 	var_t(const var_t& v)
 	{
 		//PRINT("var_t copy " << v.type);
@@ -52,6 +65,49 @@ typedef struct var_t
 	var_t(int _type, const char* _val) {
 		type = _type; sval = _val;
 	}
+
+	explicit operator bool() const
+	{
+		//PRINT("var_t::int " << ival)
+		if (type == 1)
+			return ival != 0;
+		if (type == 2)
+			return (int)fval != 0;
+		return !sval.empty() && sval != "";
+	}
+	operator int() const
+	{
+		//PRINT("var_t::int " << ival)
+		if (type == 1)
+			return ival;
+		if (type == 2)
+			return (int)fval;
+		return atoi(sval.c_str());
+	}
+	operator float() const
+	{
+		//PRINT("var_t::float " << ival)
+		if (type == 1)
+			return float(ival);
+		if (type == 2)
+			return fval;
+		return atof(sval.c_str());
+		//return 0.0f;
+	}
+	operator string() const
+	{
+		return sval;
+	}
+	string tostr() const
+	{
+		//PRINT(type << ":" << sval);
+		if (type == 1)
+			return to_string(ival);
+		if (type == 2)
+			return to_string(fval);
+		return sval;
+	}
+
 	void operator = (int v)
 	{
 		type = 1; ival = v; resid = -1;
@@ -96,43 +152,7 @@ typedef struct var_t
 	{
 		return !(*this == v);
 	}
-	operator bool() const
-	{
-		//PRINT("var_t::int " << ival)
-		if (type == 1)
-			return ival != 0;
-		if (type == 2)
-			return (int)fval != 0;
-		return !sval.empty() && sval != "";
-	}
-	operator int() const
-	{
-		//PRINT("var_t::int " << ival)
-		if (type == 1)
-			return ival;
-		if (type == 2)
-			return (int)fval;
-		return atoi(sval.c_str());
-	}
-	operator float() const
-	{
-		//PRINT("var_t::float " << ival)
-		if (type == 1)
-			return float(ival);
-		if (type == 2)
-			return fval;
-		return atof(sval.c_str());	
-		//return 0.0f;
-	}
-	inline string tostr() const
-	{
-		//PRINT(type << ":" << sval);
-		if (type == 1)
-			return to_string(ival);
-		if (type == 2)
-			return to_string(fval);
-		return sval;
-	}
+
 	var_t operator + (var_t& v) const
 	{
 		var_t ret;
@@ -250,8 +270,8 @@ typedef struct var_t
 // ------------------------------------------
 // 打印
 // ------------------------------------------
-void(*print_fun)(const var&) = 0;
-inline void _PHGPRINT(const std::string& pre, const var& v)
+void(*print_fun)(phg_var&) = 0;
+inline void _PHGPRINT(const std::string& pre, phg_var& v)
 {
 	if (v.type == 1)
 		PRINT(pre << v.ival)
@@ -298,28 +318,30 @@ inline void _PHGPRINT(const std::string& pre, const var& v)
 #define USE_STRING
 #include "phg.hpp"
 #undef USE_STRING
+
 // ------------------------------------------
 // 运算实现
 // ------------------------------------------
-using fun_calc_t = std::function<var(code& cd, opr o, int args)>;
+using fun_calc_t = std::function<phg_var(code& cd, phg_opr o, int args)>;
 fun_calc_t fun_calc = 0;
-static var _act(code& cd, int args)
+
+static phg_var _act(code& cd, int args)
 {
-	opr o = cd.oprstack.pop();
-	//PRINT("calc:" << (char)o << "(" << args << ")");
+	phg_opr o = cd.oprstack.pop();
+	// PRINT("calc:" << (char)o << "(" << args << ")");
 
 	if (fun_calc)
 	{
-		var ret = fun_calc(cd, o, args);
+		phg_var ret = fun_calc(cd, o, args);
 		if (ret != 0)
 			return ret;
 	}
-	var ret = 0;
+	phg_var ret = 0;
 	switch (o) {
 		case '+': {
 			if (args > 1) {
-				var& b = PHG_VALSTACK(1);
-				var& a = PHG_VALSTACK(2);
+				phg_var& b = PHG_VALSTACK(1);
+				phg_var& a = PHG_VALSTACK(2);
 				ret = a + b;
 			}
 			else {
@@ -328,8 +350,8 @@ static var _act(code& cd, int args)
 		}break;
 		case '+=': {
 			if (args > 1) {
-				var& b = PHG_VALSTACK(1);
-				var& a = PHG_VALSTACK(2);
+				phg_var& b = PHG_VALSTACK(1);
+				phg_var& a = PHG_VALSTACK(2);
 				ret = a + b;
 				crstr a_name = GET_SPARAM(1);
 				SET_SVAR(a_name, ret);
@@ -340,8 +362,8 @@ static var _act(code& cd, int args)
 		}break;
 		case '-': {
 			if (args > 1) {
-				var& b = PHG_VALSTACK(1);
-				var& a = PHG_VALSTACK(2);
+				phg_var& b = PHG_VALSTACK(1);
+				phg_var& a = PHG_VALSTACK(2);
 				ret = a - b;
 			}
 			else {
@@ -350,8 +372,8 @@ static var _act(code& cd, int args)
 		}break;
 		case '*': {
 			if (args > 1) {
-				var& b = PHG_VALSTACK(1);
-				var& a = PHG_VALSTACK(2);
+				phg_var& b = PHG_VALSTACK(1);
+				phg_var& a = PHG_VALSTACK(2);
 				ret = a * b;
 			}
 			else {
@@ -360,8 +382,8 @@ static var _act(code& cd, int args)
 		}break;
 		case '/': {
 			if (args > 1) {
-				var& b = PHG_VALSTACK(1);
-				var& a = PHG_VALSTACK(2);
+				phg_var& b = PHG_VALSTACK(1);
+				phg_var& a = PHG_VALSTACK(2);
 				ret = a / b;
 			}
 			else {
@@ -369,43 +391,43 @@ static var _act(code& cd, int args)
 			}
 		}break;
 		case '^': {
-			var& b = PHG_VALSTACK(1);
-			var& a = PHG_VALSTACK(2);
+			phg_var& b = PHG_VALSTACK(1);
+			phg_var& a = PHG_VALSTACK(2);
 			ret = pow((real)a, (real)b);
 		}break;
 		case '=': {
-			var& b = PHG_VALSTACK(1);
-			var& a = PHG_VALSTACK(2);
-			ret = var(int(a == b));
+			phg_var& b = PHG_VALSTACK(1);
+			phg_var& a = PHG_VALSTACK(2);
+			ret = phg_var(int(a == b));
 		}break;
 		case '>': {
-			var& b = PHG_VALSTACK(1);
-			var& a = PHG_VALSTACK(2);
+			phg_var& b = PHG_VALSTACK(1);
+			phg_var& a = PHG_VALSTACK(2);
 			ret = a > b;
 		}break;
 		case '<': {
-			var& b = PHG_VALSTACK(1);
-			var& a = PHG_VALSTACK(2);
+			phg_var& b = PHG_VALSTACK(1);
+			phg_var& a = PHG_VALSTACK(2);
 			ret = a < b;
 		}break;
 		case '&': {
-			var& b = PHG_VALSTACK(1);
-			var& a = PHG_VALSTACK(2);
+			phg_var& b = PHG_VALSTACK(1);
+			phg_var& a = PHG_VALSTACK(2);
 			ret = int(a) && int(b);
 		}break;
 		case '|': {
-			var& b = PHG_VALSTACK(1);
-			var& a = PHG_VALSTACK(2);
+			phg_var& b = PHG_VALSTACK(1);
+			phg_var& a = PHG_VALSTACK(2);
 			ret = int(a) || int(b);
 		}break;
 		case '!': {
 			if (args > 1) {
-				var& b = PHG_VALSTACK(1);
-				var& a = PHG_VALSTACK(2);
+				phg_var& b = PHG_VALSTACK(1);
+				phg_var& a = PHG_VALSTACK(2);
 				ret = !(a == b);
 			}
 			else {
-				var a = cd.valstack.pop();
+				phg_var a = cd.valstack.pop();
 				return !int(a);
 			}
 		}break;
